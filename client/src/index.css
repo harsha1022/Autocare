@@ -1,0 +1,112 @@
+:root {
+  /* Flat UI Colors 2 Palette */
+  --primary: #0984e3;
+  /* Electron Blue */
+  --primary-light: #74b9ff;
+  --secondary: #6c5ce7;
+  /* Exodus Fruit */
+  --secondary-light: #a29bfe;
+  --accent: #00b894;
+  /* Mint Leaf */
+  --accent-light: #55efc4;
+
+  --bg-deep: #2d3436;
+  /* Dracula Orchid */
+  --bg-dark: #121212;
+  /* Pure Dark */
+  --surface: #636e72;
+  /* American River */
+  --surface-light: #b2bec3;
+  /* Soothing Breeze */
+
+  --text-main: #ffffff;
+  --text-muted: #dfe6e9;
+  /* City Lights */
+
+  --success: #00b894;
+  --danger: #d63031;
+  /* Chi-Gong */
+  --warning: #fdcb6e;
+  /* Bright Yarrow */
+
+  --glass-bg: rgba(45, 52, 54, 0.4);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-blur: blur(12px);
+
+  /* Legacy variable mapping for compatibility */
+  --primary-color: var(--primary);
+  --secondary-color: var(--secondary);
+  --accent-color: var(--warning);
+  --background-dark: var(--bg-dark);
+  --surface-dark: var(--bg-deep);
+  --text-primary: var(--text-main);
+  --text-secondary: var(--text-muted);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Base Gradient backgrounds */
+.gradient-bg {
+  background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-deep) 100%);
+}
+
+.gradient-primary {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 1s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+.slide-in {
+  animation: slideInRight 1s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}

@@ -1,0 +1,43 @@
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import Home from './pages/Home';
+import Services from './pages/Services';
+import Booking from './pages/Booking';
+import Partner from './pages/Partner';
+import Auth from './pages/Auth';
+import HowItWorks from './pages/HowItWorks';
+import AdminDashboard from './pages/AdminDashboard';
+
+import './index.css';
+
+const AppContent = () => {
+  const location = useLocation();
+  const isAdminPath = location.pathname.startsWith('/admin');
+
+  return (
+    <div className="App">
+      {!isAdminPath && <Navbar />}
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/services" element={<Services />} />
+        <Route path="/book-assistance" element={<Booking />} />
+        <Route path="/partner" element={<Partner />} />
+        <Route path="/login" element={<Auth />} />
+        <Route path="/how-it-works" element={<HowItWorks />} />
+        <Route path="/admin" element={<AdminDashboard />} />
+      </Routes>
+    </div>
+  );
+};
+
+function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
+  );
+}
+
+
+export default App;
