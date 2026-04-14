@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { ShieldCheck, Clock, LogIn } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import MapPicker from '../components/MapPicker';
 import './Form.css';
 
 const Partner = () => {
@@ -12,7 +13,8 @@ const Partner = () => {
     const [formData, setFormData] = useState({
         shopName: '',
         specialization: 'Car',
-        locationText: ''
+        locationText: '',
+        coordinates: null
     });
     const [mechanicStatus, setMechanicStatus] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -62,7 +64,10 @@ const Partner = () => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify(formData),
+                body: JSON.stringify({
+                    ...formData,
+                    location: formData.coordinates ? [formData.coordinates.lng, formData.coordinates.lat] : [0, 0]
+                }),
             });
 
             const data = await response.json();
@@ -182,15 +187,13 @@ const Partner = () => {
                             <option value="Both">Both (Car &amp; Bike)</option>
                         </select>
                     </div>
-                    <div className="form-group">
+                    <div className="form-group" style={{ marginBottom: '20px' }}>
                         <label>Location (City / Area)</label>
-                        <input
-                            type="text"
-                            name="locationText"
-                            placeholder="e.g. MG Road, Vijayawada"
-                            value={formData.locationText}
-                            onChange={handleChange}
-                            required
+                        <MapPicker 
+                            initialLocationText={formData.locationText}
+                            onLocationSelect={(coords, addr) => 
+                                setFormData({ ...formData, coordinates: coords, locationText: addr })
+                            } 
                         />
                     </div>
                     <button type="submit" className="btn-submit" disabled={loading}>

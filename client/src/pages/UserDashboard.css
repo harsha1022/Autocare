@@ -1,0 +1,51 @@
+/* UserDashboard Styles - Reusing Masterpiece Aesthetic */
+.user-dashboard {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem;
+    color: #C6C0B9;
+    font-family: 'Inter', sans-serif;
+}
+
+.map-container {
+    margin-top: 1.5rem;
+    position: relative;
+    border: 1px solid rgba(214, 181, 136, 0.2);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.tracking-status-bar {
+    padding: 1rem;
+    background: rgba(20, 10, 5, 0.9);
+    border-top: 1px solid rgba(214, 181, 136, 0.2);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.live-badge {
+    color: #10b981;
+    font-weight: 600;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: pulse 2s infinite;
+}
+
+.waiting-badge {
+    color: #f59e0b;
+    font-style: italic;
+    font-size: 0.9rem;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.8; }
+    50% { opacity: 1; text-shadow: 0 0 8px rgba(16, 185, 129, 0.5); }
+    100% { opacity: 0.8; }
+}
+
+.live-tracking-card {
+    border-top: 4px solid #10b981;
+}

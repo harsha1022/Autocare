@@ -24,6 +24,13 @@ const io = new Server(server, {
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
     
+    // Relay mechanic tracking updates directly to listening active users
+    socket.on('mechanicLocationUpdate', (data) => {
+        // data contains { requestId, lat, lng }
+        // We emit it back uniquely so only the user watching this request gets it
+        io.emit(`tracking_${data.requestId}`, data);
+    });
+
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.id}`);
     });

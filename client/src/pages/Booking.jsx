@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import MapPicker from '../components/MapPicker';
 import './Form.css';
 
 const Booking = () => {
@@ -12,7 +13,8 @@ const Booking = () => {
     const [formData, setFormData] = useState({
         vehicleType: 'Car',
         serviceType: '',
-        location: '',
+        locationText: '',
+        coordinates: null,
         description: ''
     });
     const [isLoading, setIsLoading] = useState(false);
@@ -51,7 +53,9 @@ const Booking = () => {
                     serviceType: formData.serviceType,
                     description: formData.description,
                     location: {
-                        address: formData.location
+                        address: formData.locationText,
+                        type: 'Point',
+                        coordinates: formData.coordinates ? [formData.coordinates.lng, formData.coordinates.lat] : [0, 0]
                     }
                 })
             });
@@ -60,8 +64,8 @@ const Booking = () => {
 
             if (response.ok) {
                 toast.success('Booking request sent! A mechanic will be assigned shortly.');
-                setFormData({ vehicleType: 'Car', serviceType: '', location: '', description: '' });
-                navigate('/');
+                setFormData({ vehicleType: 'Car', serviceType: '', locationText: '', coordinates: null, description: '' });
+                navigate('/user-dashboard'); // Navigate directly to new dashboard to track
             } else {
                 toast.error(data.message || data.error || 'Failed to submit booking');
             }
@@ -97,13 +101,12 @@ const Booking = () => {
                             onChange={(e) => setFormData({ ...formData, serviceType: e.target.value })}
                         />
                     </div>
-                    <div className="form-group">
+                    <div className="form-group" style={{ marginBottom: '20px' }}>
                         <label>Location / Landmark</label>
-                        <input
-                            type="text"
-                            placeholder="Your current location"
-                            required
-                            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                        <MapPicker 
+                            onLocationSelect={(coords, addr) => 
+                                setFormData({ ...formData, coordinates: coords, locationText: addr })
+                            } 
                         />
                     </div>
                     <div className="form-group">

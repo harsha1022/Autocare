@@ -11,6 +11,7 @@ const MechanicDashboard = () => {
     const { user, token } = useAuth();
     const navigate = useNavigate();
     
+    const [socket, setSocket] = useState(null);
     const [pendingRequests, setPendingRequests] = useState([]);
     const [myRequests, setMyRequests] = useState([]);
     const [mechanicId, setMechanicId] = useState(null);
@@ -54,14 +55,15 @@ const MechanicDashboard = () => {
         if (!user || user.role !== 'mechanic') return;
 
         // Connect to the backend
-        const socket = io('http://localhost:5000');
+        const newSocket = io('http://localhost:5000');
+        setSocket(newSocket);
 
-        socket.on('connect', () => {
+        newSocket.on('connect', () => {
             console.log('Connected to real-time service requests server');
         });
 
         // Listen for new requests
-        socket.on('newServiceRequest', (newRequest) => {
+        newSocket.on('newServiceRequest', (newRequest) => {
             setPendingRequests((prevRequests) => {
                 if (prevRequests.some((req) => req._id === newRequest._id)) {
                     return prevRequests;
@@ -75,7 +77,7 @@ const MechanicDashboard = () => {
         });
 
         // Listen for requests accepted by OTHER mechanics to remove them instantly
-        socket.on('requestAccepted', (acceptedRequestId) => {
+        newSocket.on('requestAccepted', (acceptedRequestId) => {
             setPendingRequests((prevRequests) => {
                 const isPresent = prevRequests.some(r => r._id === acceptedRequestId);
                 if (isPresent) {
@@ -86,8 +88,34 @@ const MechanicDashboard = () => {
             });
         });
 
-        return () => socket.disconnect();
+        return () => newSocket.disconnect();
     }, [user]);
+
+    // Active Jobs Live Tracking (WebSockets + Geolocation)
+    useEffect(() => {
+        const activeServices = myRequests.filter(req => req.status === 'Accepted' || req.status === 'InProgress');
+        if (!socket || activeServices.length === 0 || !navigator.geolocation) return;
+
+        console.log(`Starting real-time tracking broadcast for ${activeServices.length} active jobs...`);
+        const watchId = navigator.geolocation.watchPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                // Broadcast coordinates to the backend for every active request so user can map it
+                activeServices.forEach(req => {
+                    socket.emit('mechanicLocationUpdate', {
+                        requestId: req._id,
+                        mechanicId: mechanicId,
+                        lat: latitude,
+                        lng: longitude
+                    });
+                });
+            },
+            (error) => console.log('Mechanic denied location or error:', error),
+            { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+        );
+
+        return () => navigator.geolocation.clearWatch(watchId);
+    }, [socket, myRequests, mechanicId]);
 
     const fetchData = async () => {
         setIsLoading(true);
@@ -147,6 +175,10 @@ const MechanicDashboard = () => {
             });
             if (res.ok) {
                 toast.success('Service Marked as Completed!');
+                // Notify user dashboard that service is done so it turns off maps
+                if (socket) {
+                    socket.emit('mechanicLocationUpdate', { requestId: id, status: 'Completed' }); // generic notify
+                }
                 fetchData(); // Refresh lists
             } else {
                 const err = await res.json();

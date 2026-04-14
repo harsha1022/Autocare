@@ -9,6 +9,7 @@ import Auth from './pages/Auth';
 import HowItWorks from './pages/HowItWorks';
 import AdminDashboard from './pages/AdminDashboard';
 import MechanicDashboard from './pages/MechanicDashboard';
+import UserDashboard from './pages/UserDashboard';
 
 import './index.css';
 
@@ -28,6 +29,7 @@ const AppContent = () => {
         <Route path="/how-it-works" element={<HowItWorks />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/mechanic-dashboard" element={<MechanicDashboard />} />
+        <Route path="/user-dashboard" element={<UserDashboard />} />
       </Routes>
     </div>
   );
