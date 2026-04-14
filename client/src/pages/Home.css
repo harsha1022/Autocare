@@ -30,6 +30,7 @@
 .hero-content h1 span {
     background: linear-gradient(to right, var(--primary-light), var(--secondary-light));
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
@@ -52,13 +53,13 @@
     border-radius: 14px;
     font-weight: 700;
     font-size: 1.05rem;
-    box-shadow: 0 10px 30px rgba(9, 132, 227, 0.3);
+    box-shadow: 0 10px 30px rgba(214, 181, 136, 0.3);
 }
 
 .btn-primary:hover {
     background: var(--primary-light);
     transform: translateY(-4px);
-    box-shadow: 0 15px 40px rgba(9, 132, 227, 0.4);
+    box-shadow: 0 15px 40px rgba(214, 181, 136, 0.4);
 }
 
 .btn-secondary {
@@ -150,7 +151,7 @@
     justify-content: center;
     align-items: center;
     margin: 0 auto 2rem auto;
-    background: rgba(9, 132, 227, 0.1);
+    background: rgba(214, 181, 136, 0.1);
     padding: 1.5rem;
     border-radius: 50%;
     transition: all 0.3s ease;
@@ -160,7 +161,7 @@
     transform: scale(1.1) rotate(5deg);
     background: var(--primary);
     color: white;
-    box-shadow: 0 10px 25px rgba(9, 132, 227, 0.4);
+    box-shadow: 0 10px 25px rgba(214, 181, 136, 0.4);
 }
 
 .service-card h3 {

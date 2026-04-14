@@ -60,16 +60,30 @@ const AdminDashboard = () => {
         }
     };
 
-    const handleVerify = async (id) => {
+    const handleApprove = async (id) => {
         try {
-            const response = await fetch(`http://localhost:5000/api/admin/mechanics/${id}/verify`, {
+            const response = await fetch(`http://localhost:5000/api/admin/mechanics/${id}/approve`, {
                 method: 'PUT'
             });
             if (response.ok) {
                 fetchData();
             }
         } catch (error) {
-            console.error('Error verifying mechanic:', error);
+            console.error('Error approving mechanic:', error);
+        }
+    };
+
+    const handleReject = async (id) => {
+        if (!window.confirm('Reject this partner application?')) return;
+        try {
+            const response = await fetch(`http://localhost:5000/api/admin/mechanics/${id}/reject`, {
+                method: 'PUT'
+            });
+            if (response.ok) {
+                fetchData();
+            }
+        } catch (error) {
+            console.error('Error rejecting mechanic:', error);
         }
     };
 
@@ -117,12 +131,12 @@ const AdminDashboard = () => {
 
     if (loading) return (
         <div className="admin-layout">
-            <div className="admin-main" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', marginLeft: 0 }}>
+            <div className="admin-main" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                 <div style={{ textAlign: 'center' }}>
-                    <div className="loader" style={{ fontSize: '2rem', marginBottom: '1rem' }}>
+                    <div className="loader">
                         <RefreshCcw size={48} />
                     </div>
-                    <p style={{ color: '#64748b', fontWeight: 600 }}>Loading Pro Dashboard...</p>
+                    <p style={{ color: '#7a6a5a', fontWeight: 600, marginTop: '1rem' }}>Loading Dashboard...</p>
                 </div>
             </div>
         </div>
@@ -181,27 +195,26 @@ const AdminDashboard = () => {
                             style={{ border: 'none', outline: 'none', marginLeft: '0.75rem', fontSize: '0.95rem', width: '300px' }}
                         />
                     </div>
-                    <div className="topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                    <div className="topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                         <button className="btn-icon">
                             <Bell size={20} />
                         </button>
                         <button className="btn-icon">
                             <Settings size={20} />
                         </button>
-                        <div style={{ height: '24px', width: '1px', background: '#e2e8f0' }}></div>
-                        <button onClick={fetchData} className="btn-action btn-verify-pro" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <button onClick={fetchData} className="btn-action btn-verify-pro">
                             <RefreshCcw size={16} />
                             <span>Refresh</span>
                         </button>
                     </div>
                 </header>
 
-                <div className="page-header" style={{ marginBottom: '2.5rem' }}>
-                    <h1 style={{ fontSize: '2rem', fontWeight: 800, color: '#0f172a' }}>
+                <div className="page-header">
+                    <h1>
                         {activeTab === 'overview' ? 'Dashboard Overview' :
                             activeTab === 'users' ? 'User Management' : 'Partner Network'}
                     </h1>
-                    <p style={{ color: '#64748b', fontSize: '1rem', marginTop: '0.5rem' }}>
+                    <p>
                         Welcome back, Admin. Here's what's happening with CarAssist today.
                     </p>
                 </div>
@@ -279,6 +292,7 @@ const AdminDashboard = () => {
                                                 <th>Specialization</th>
                                                 <th>Applied Date</th>
                                                 <th style={{ textAlign: 'right' }}>Action</th>
+
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -300,9 +314,14 @@ const AdminDashboard = () => {
                                                     </td>
                                                     <td>{m.createdAt ? new Date(m.createdAt).toLocaleDateString() : 'New'}</td>
                                                     <td style={{ textAlign: 'right' }}>
-                                                        <button onClick={() => handleVerify(m._id)} className="btn-action btn-success-pro">
-                                                            Approve Now
-                                                        </button>
+                                                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                                            <button onClick={() => handleApprove(m._id)} className="btn-action btn-success-pro">
+                                                                ✓ Approve
+                                                            </button>
+                                                            <button onClick={() => handleReject(m._id)} className="btn-action" style={{ background: 'rgba(229,62,62,0.1)', border: '1px solid rgba(229,62,62,0.25)', color: '#fc8181' }}>
+                                                                ✕ Reject
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -328,6 +347,7 @@ const AdminDashboard = () => {
                                         <th>Specialization</th>
                                         <th>Verification</th>
                                         <th style={{ textAlign: 'right' }}>Actions</th>
+
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -338,7 +358,7 @@ const AdminDashboard = () => {
                                                     <div className="avatar">{getInitials(m.shopName)}</div>
                                                     <div>
                                                         <div style={{ fontWeight: 700 }}>{m.shopName}</div>
-                                                        <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{m.userId?.email}</div>
+                                                        <div className="text-sub">{m.userId?.email}</div>
                                                     </div>
                                                 </div>
                                             </td>
@@ -350,10 +370,16 @@ const AdminDashboard = () => {
                                                 </span>
                                             </td>
                                             <td style={{ textAlign: 'right' }}>
-                                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                                    <button onClick={() => handleVerify(m._id)} className="btn-action btn-verify-pro">
-                                                        {m.isVerified ? 'Revoke' : 'Verify'}
-                                                    </button>
+                                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                                    {!m.isVerified ? (
+                                                        <button onClick={() => handleApprove(m._id)} className="btn-action btn-success-pro">
+                                                            ✓ Approve
+                                                        </button>
+                                                    ) : (
+                                                        <button onClick={() => handleReject(m._id)} className="btn-action btn-verify-pro">
+                                                            Revoke
+                                                        </button>
+                                                    )}
                                                     <button onClick={() => handleDeleteMechanic(m._id)} className="btn-icon delete">
                                                         <Trash2 size={18} />
                                                     </button>
@@ -381,6 +407,7 @@ const AdminDashboard = () => {
                                         <th>Contact Info</th>
                                         <th>Joined At</th>
                                         <th style={{ textAlign: 'right' }}>Actions</th>
+
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -388,7 +415,7 @@ const AdminDashboard = () => {
                                         <tr key={u._id}>
                                             <td>
                                                 <div className="profile-cell">
-                                                    <div className="avatar" style={{ background: 'linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)', color: '#4338ca' }}>
+                                                    <div className="avatar" style={{ background: 'linear-gradient(135deg, #93c5fd, #3b82f6)', color: '#fff' }}>
                                                         {getInitials(u.name)}
                                                     </div>
                                                     <div style={{ fontWeight: 700 }}>{u.name}</div>
@@ -396,7 +423,7 @@ const AdminDashboard = () => {
                                             </td>
                                             <td>
                                                 <div style={{ fontWeight: 500 }}>{u.email}</div>
-                                                <div style={{ fontSize: '0.85rem', color: '#64748b' }}>{u.phone || 'No phone'}</div>
+                                                <div className="text-sub">{u.phone || 'No phone'}</div>
                                             </td>
                                             <td>{new Date(u.createdAt).toLocaleDateString()}</td>
                                             <td style={{ textAlign: 'right' }}>

@@ -8,6 +8,7 @@ import Partner from './pages/Partner';
 import Auth from './pages/Auth';
 import HowItWorks from './pages/HowItWorks';
 import AdminDashboard from './pages/AdminDashboard';
+import MechanicDashboard from './pages/MechanicDashboard';
 
 import './index.css';
 
@@ -26,6 +27,7 @@ const AppContent = () => {
         <Route path="/login" element={<Auth />} />
         <Route path="/how-it-works" element={<HowItWorks />} />
         <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/mechanic-dashboard" element={<MechanicDashboard />} />
       </Routes>
     </div>
   );

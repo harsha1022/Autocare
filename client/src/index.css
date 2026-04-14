@@ -1,33 +1,23 @@
 :root {
-  /* Flat UI Colors 2 Palette */
-  --primary: #0984e3;
-  /* Electron Blue */
-  --primary-light: #74b9ff;
-  --secondary: #6c5ce7;
-  /* Exodus Fruit */
-  --secondary-light: #a29bfe;
-  --accent: #00b894;
-  /* Mint Leaf */
-  --accent-light: #55efc4;
+  /* Earthy Colors Palette */
+  --primary: #D6B588;       /* Warm Beige */
+  --primary-light: #e5cdab; /* Lighter Warm Beige */
+  --secondary: #705E46;     /* Medium Brown */
+  --secondary-light: #8f7959;/* Light Medium Brown */
+  --accent: #C6C0B9;        /* Light Greige */
+  --accent-light: #ebe8e4;
 
-  --bg-deep: #2d3436;
-  /* Dracula Orchid */
-  --bg-dark: #121212;
-  /* Pure Dark */
-  --surface: #636e72;
-  /* American River */
-  --surface-light: #b2bec3;
-  /* Soothing Breeze */
+  --bg-deep: #2e1b00;       /* Super Dark Brown (Surface) */
+  --bg-dark: #422701;       /* Dark Brown (Base Bg) */
+  --surface: #705E46;       /* Medium Brown Surface */
+  --surface-light: #D6B588;
 
   --text-main: #ffffff;
-  --text-muted: #dfe6e9;
-  /* City Lights */
+  --text-muted: #C6C0B9;    /* Light Greige */
 
-  --success: #00b894;
-  --danger: #d63031;
-  /* Chi-Gong */
-  --warning: #fdcb6e;
-  /* Bright Yarrow */
+  --success: #6CA672;       /* Muted Green matching earthy vibe */
+  --danger: #A65243;        /* Muted Red */
+  --warning: #D6B588;       /* Warm Beige replacing bright yellow */
 
   --glass-bg: rgba(45, 52, 54, 0.4);
   --glass-border: rgba(255, 255, 255, 0.1);

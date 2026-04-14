@@ -4,7 +4,8 @@ const MechanicSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     shopName: { type: String, required: true },
     specialization: { type: [String], enum: ['Car', 'Bike', 'Both'], default: ['Car'] },
-    services: { type: [String] }, // e.g., 'Towing', 'Tyre Repair', 'Fuel Delivery'
+    locationText: { type: String, default: '' }, // Human-readable location from the form
+    services: { type: [String] },
     isVerified: { type: Boolean, default: false },
     availability: { type: Boolean, default: true },
     rating: { type: Number, default: 0 },

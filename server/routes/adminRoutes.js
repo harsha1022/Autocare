@@ -43,16 +43,63 @@ router.get('/mechanics', async (req, res) => {
     }
 });
 
-// Toggle verification status of a mechanic
+// Approve a mechanic partner application
+router.put('/mechanics/:id/approve', async (req, res) => {
+    try {
+        const mechanic = await Mechanic.findById(req.params.id).populate('userId');
+        if (!mechanic) return res.status(404).json({ message: 'Application not found' });
+
+        mechanic.isVerified = true;
+        await mechanic.save();
+
+        // Promote the user role to 'mechanic' on approval
+        if (mechanic.userId) {
+            await User.findByIdAndUpdate(mechanic.userId._id, { role: 'mechanic' });
+        }
+
+        res.status(200).json({ message: 'Partner application approved successfully', mechanic });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Reject a mechanic partner application
+router.put('/mechanics/:id/reject', async (req, res) => {
+    try {
+        const mechanic = await Mechanic.findById(req.params.id).populate('userId');
+        if (!mechanic) return res.status(404).json({ message: 'Application not found' });
+
+        mechanic.isVerified = false;
+        await mechanic.save();
+
+        // Revert user role back to 'user' on rejection
+        if (mechanic.userId) {
+            await User.findByIdAndUpdate(mechanic.userId._id, { role: 'user' });
+        }
+
+        res.status(200).json({ message: 'Partner application rejected', mechanic });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Legacy toggle (kept for compatibility — prefer /approve and /reject above)
 router.put('/mechanics/:id/verify', async (req, res) => {
     try {
-        const mechanic = await Mechanic.findById(req.params.id);
+        const mechanic = await Mechanic.findById(req.params.id).populate('userId');
         if (!mechanic) return res.status(404).json({ message: 'Mechanic not found' });
 
         mechanic.isVerified = !mechanic.isVerified;
         await mechanic.save();
 
-        res.status(200).json({ message: `Mechanic ${mechanic.isVerified ? 'verified' : 'unverified'} successfully`, mechanic });
+        // Sync user role
+        if (mechanic.userId) {
+            await User.findByIdAndUpdate(mechanic.userId._id, {
+                role: mechanic.isVerified ? 'mechanic' : 'user'
+            });
+        }
+
+        res.status(200).json({ message: `Mechanic ${mechanic.isVerified ? 'approved' : 'rejected'} successfully`, mechanic });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

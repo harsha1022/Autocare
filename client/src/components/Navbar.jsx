@@ -1,22 +1,14 @@
 import { NavLink, Link, useNavigate } from 'react-router-dom';
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { useAuth } from '../context/AuthContext';
 import './Navbar.css';
 
 const Navbar = () => {
-    const [user, setUser] = useState(null);
+    const { user, logout } = useAuth();
     const navigate = useNavigate();
 
-    useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        console.log('Navbar loaded user:', storedUser);
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
-        }
-    }, []);
-
     const handleLogout = () => {
-        localStorage.removeItem('user');
-        setUser(null);
+        logout();
         navigate('/login');
     };
     return (
@@ -46,6 +38,9 @@ const Navbar = () => {
                     <div className="user-pro-controls">
                         {user.role === 'admin' && (
                             <Link to="/admin" className="btn-dashboard-pro">Dashboard</Link>
+                        )}
+                        {user.role === 'mechanic' && (
+                            <Link to="/mechanic-dashboard" className="btn-dashboard-pro">Dashboard</Link>
                         )}
                         <span className="user-welcome">Hello, <span>{user.name.split(' ')[0]}</span></span>
                         <button onClick={handleLogout} className="btn-logout">Logout</button>

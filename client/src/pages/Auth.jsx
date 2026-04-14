@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 
 import './Form.css';
 
 const Auth = () => {
+    const { login } = useAuth();
     const [isLogin, setIsLogin] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -19,6 +23,7 @@ const Auth = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsLoading(true);
         const endpoint = isLogin ? '/api/users/login' : '/api/users/register';
         const url = `http://localhost:5000${endpoint}`;
 
@@ -34,15 +39,17 @@ const Auth = () => {
             const data = await response.json();
 
             if (response.ok) {
-                alert(isLogin ? 'Login successful!' : 'Account created successfully!');
-                localStorage.setItem('user', JSON.stringify(data.user || data));
-                window.location.href = '/';
+                toast.success(isLogin ? 'Login successful!' : 'Account created successfully!');
+                login(data.user, data.token);
+                navigate('/');
             } else {
-                alert(data.message || data.error || 'Something went wrong');
+                toast.error(data.message || data.error || 'Something went wrong');
             }
         } catch (error) {
             console.error('Auth error:', error);
-            alert('Failed to connect to server');
+            toast.error('Failed to connect to server');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -100,8 +107,8 @@ const Auth = () => {
                             />
                         </div>
                     )}
-                    <button type="submit" className="btn-submit">
-                        {isLogin ? 'Login' : 'Create Account'}
+                    <button type="submit" className="btn-submit" disabled={isLoading}>
+                        {isLoading ? 'Processing...' : (isLogin ? 'Login' : 'Create Account')}
                     </button>
                 </form>
                 <p style={{ marginTop: '1.5rem' }}>

@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 import './Form.css';
 
 const Booking = () => {
     const location = useLocation();
+    const navigate = useNavigate();
+    const { user, token } = useAuth();
 
     const [formData, setFormData] = useState({
         vehicleType: 'Car',
@@ -11,6 +15,7 @@ const Booking = () => {
         location: '',
         description: ''
     });
+    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         if (location.state) {
@@ -23,9 +28,49 @@ const Booking = () => {
         }
     }, [location.state]);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        alert('Booking request sent! A mechanic will be assigned shortly.');
+
+        if (!user || !token) {
+            toast.error('Please login to book assistance');
+            navigate('/login');
+            return;
+        }
+
+        setIsLoading(true);
+
+        try {
+            const response = await fetch('http://localhost:5000/api/services/request', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    vehicleType: formData.vehicleType,
+                    serviceType: formData.serviceType,
+                    description: formData.description,
+                    location: {
+                        address: formData.location
+                    }
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                toast.success('Booking request sent! A mechanic will be assigned shortly.');
+                setFormData({ vehicleType: 'Car', serviceType: '', location: '', description: '' });
+                navigate('/');
+            } else {
+                toast.error(data.message || data.error || 'Failed to submit booking');
+            }
+        } catch (error) {
+            console.error('Booking error:', error);
+            toast.error('Failed to connect to server');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -68,7 +113,9 @@ const Booking = () => {
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                         ></textarea>
                     </div>
-                    <button type="submit" className="btn-submit">Request Assistance</button>
+                    <button type="submit" className="btn-submit" disabled={isLoading}>
+                        {isLoading ? 'Submitting...' : 'Request Assistance'}
+                    </button>
                 </form>
             </div>
         </div>

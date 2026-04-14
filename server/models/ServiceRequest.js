@@ -7,7 +7,7 @@ const ServiceRequestSchema = new mongoose.Schema({
     serviceType: { type: String, required: true }, // e.g., 'Battery Jump-start', 'Fuel Delivery'
     description: { type: String },
     location: {
-        type: { type: String, default: 'Point' },
+        type: { type: String, enum: ['Point'] },
         coordinates: { type: [Number], index: '2dsphere' },
         address: { type: String }
     },
