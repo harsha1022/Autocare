@@ -216,6 +216,44 @@
     color: #fca5a5;
 }
 
+/* ===== My Requests (user nav link with badge) ===== */
+.btn-my-requests {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+    color: #D6B588;
+    font-size: 0.88rem;
+    font-weight: 600;
+    padding: 7px 16px;
+    border-radius: 8px;
+    background: rgba(214, 181, 136, 0.1);
+    border: 1px solid rgba(214, 181, 136, 0.25);
+    transition: background 0.2s ease, border-color 0.2s ease;
+    white-space: nowrap;
+}
+
+.btn-my-requests:hover {
+    background: rgba(214, 181, 136, 0.2);
+    border-color: rgba(214, 181, 136, 0.5);
+}
+
+.nav-req-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    background: #ef4444;
+    color: #fff;
+    border-radius: 20px;
+    font-size: 0.65rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 900px) {
     .navbar {

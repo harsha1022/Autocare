@@ -4,14 +4,14 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const validate = require('../middleware/validate');
+const authMiddleware = require('../middleware/authMiddleware');
 const { userRegistrationSchema, userLoginSchema } = require('../validators/userValidator');
 
-// Register User
+// ─── REGISTER USER ────────────────────────────────────────────────────────────
 router.post('/register', validate(userRegistrationSchema), async (req, res) => {
     try {
         const { name, email, password, phone, role } = req.body;
 
-        // Check if user exists
         let user = await User.findOne({ email });
         if (user) {
             return res.status(400).json({ message: 'User already exists' });
@@ -19,13 +19,11 @@ router.post('/register', validate(userRegistrationSchema), async (req, res) => {
 
         user = new User({ name, email, password, phone, role });
 
-        // Hash password
         const salt = await bcrypt.genSalt(10);
         user.password = await bcrypt.hash(password, salt);
 
         const savedUser = await user.save();
 
-        // Create JWT
         const payload = { id: savedUser._id, role: savedUser.role };
         const token = jwt.sign(payload, process.env.JWT_SECRET || 'fallback_secret', { expiresIn: '1d' });
 
@@ -38,7 +36,7 @@ router.post('/register', validate(userRegistrationSchema), async (req, res) => {
     }
 });
 
-// Login
+// ─── LOGIN ────────────────────────────────────────────────────────────────────
 router.post('/login', validate(userLoginSchema), async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -58,8 +56,41 @@ router.post('/login', validate(userLoginSchema), async (req, res) => {
         res.status(200).json({
             message: 'Login successful',
             token,
-            user: { id: user._id, name: user.name, email: user.email, role: user.role }
+            user: { id: user._id, name: user.name, email: user.email, role: user.role, phone: user.phone }
         });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ─── GET OWN PROFILE ──────────────────────────────────────────────────────────
+router.get('/me', authMiddleware, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('-password');
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        res.status(200).json(user);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ─── UPDATE OWN PROFILE ───────────────────────────────────────────────────────
+router.put('/me', authMiddleware, async (req, res) => {
+    try {
+        const { name, phone } = req.body;
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (phone) updateData.phone = phone;
+
+        const user = await User.findByIdAndUpdate(
+            req.user.id,
+            { $set: updateData },
+            { new: true, runValidators: true }
+        ).select('-password');
+
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        res.status(200).json({ message: 'Profile updated successfully', user });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

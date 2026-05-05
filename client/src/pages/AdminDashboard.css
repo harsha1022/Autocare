@@ -597,3 +597,87 @@
         align-items: flex-start;
     }
 }
+
+/* ── Admin User Card (Sidebar) ─────────────────────────── */
+.admin-user-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: rgba(214, 181, 136, 0.07);
+    border: 1px solid rgba(214, 181, 136, 0.12);
+    border-radius: 14px;
+    padding: 0.875rem 1rem;
+    margin: 0 0.75rem 1rem;
+}
+
+.admin-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #ef4444, #b91c1c);
+    color: #fff;
+    font-weight: 900;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.admin-role-tag {
+    display: inline-block;
+    padding: 2px 10px;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 20px;
+    color: #f87171;
+    font-size: 0.72rem;
+    font-weight: 700;
+    margin-top: 4px;
+}
+
+/* ── Nav Badge ─────────────────────────────────────────── */
+.nav-badge {
+    margin-left: auto;
+    background: #ef4444;
+    color: #fff;
+    border-radius: 20px;
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    font-weight: 800;
+}
+
+/* ── Danger Button ─────────────────────────────────────── */
+.btn-danger-pro {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: #f87171;
+}
+
+.btn-danger-pro:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.4);
+    transform: translateY(-1px);
+}
+
+/* ── Logout Nav Item ───────────────────────────────────── */
+.nav-item.logout {
+    color: #f87171;
+}
+
+.nav-item.logout:hover {
+    background: rgba(239, 68, 68, 0.08);
+    color: #ef4444;
+}
+
+/* ── Empty State ───────────────────────────────────────── */
+.md-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 3rem;
+    text-align: center;
+    color: #7a6a5a;
+}

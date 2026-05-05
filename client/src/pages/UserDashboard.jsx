@@ -2,222 +2,496 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import toast from 'react-hot-toast';
-import { Car, MapPin, CheckCircle, Clock } from 'lucide-react';
+import {
+    Car, MapPin, CheckCircle, Clock, User, Phone, Mail,
+    LogOut, Wrench, AlertCircle, CreditCard, Edit3, Save, X,
+    History, Home, Settings, Bell, RefreshCcw
+} from 'lucide-react';
 import './UserDashboard.css';
 
-const containerStyle = {
-    width: '100%',
-    height: '400px',
-    borderRadius: '12px'
+const API = 'http://localhost:5000';
+
+const STATUS_COLORS = {
+    Pending: { bg: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: 'rgba(245,158,11,0.3)' },
+    Accepted: { bg: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: 'rgba(59,130,246,0.3)' },
+    InProgress: { bg: 'rgba(16,185,129,0.15)', color: '#10b981', border: 'rgba(16,185,129,0.3)' },
+    Completed: { bg: 'rgba(214,181,136,0.15)', color: '#D6B588', border: 'rgba(214,181,136,0.3)' },
+    Cancelled: { bg: 'rgba(239,68,68,0.15)', color: '#ef4444', border: 'rgba(239,68,68,0.3)' },
+};
+
+const StatusBadge = ({ status }) => {
+    const s = STATUS_COLORS[status] || STATUS_COLORS.Pending;
+    return (
+        <span style={{
+            padding: '4px 12px', borderRadius: '20px', fontSize: '0.78rem', fontWeight: 700,
+            background: s.bg, color: s.color, border: `1px solid ${s.border}`
+        }}>
+            {status}
+        </span>
+    );
 };
 
 const UserDashboard = () => {
-    const { user, token } = useAuth();
+    const { user, token, logout } = useAuth();
     const navigate = useNavigate();
-    
+
+    const [activeTab, setActiveTab] = useState('requests');
     const [myRequests, setMyRequests] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [activeTracking, setActiveTracking] = useState(null); // Which request we are currently viewing on the map
-    const [mechanicCoords, setMechanicCoords] = useState(null); // Real-time updated mechanic coordinates
-
-    const { isLoaded } = useJsApiLoader({
-        id: 'google-map-script',
-        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-    });
+    const [profileData, setProfileData] = useState({ name: '', phone: '' });
+    const [editingProfile, setEditingProfile] = useState(false);
+    const [savingProfile, setSavingProfile] = useState(false);
 
     useEffect(() => {
-        if (!user) {
-            navigate('/login');
-            return;
-        }
         fetchData();
-    }, [user, navigate]);
+        // Seed profile data from auth context
+        setProfileData({ name: user?.name || '', phone: user?.phone || '' });
+    }, []);
 
-    // Live Socket Connection Setup
+    // Live socket for status updates
     useEffect(() => {
-        if (!activeTracking || !token) return;
+        if (!token) return;
+        const socket = io(API);
 
-        const socket = io('http://localhost:5000');
-        
-        // Listen dynamically to the channel for this specific request
-        const channelName = `tracking_${activeTracking._id}`;
-        console.log(`Listening for mechanic tracking on: ${channelName}`);
-        
-        socket.on(channelName, (data) => {
-            // Data contains { lat, lng } from the mechanic side
-            setMechanicCoords({ lat: data.lat, lng: data.lng });
+        socket.on('requestStatusUpdate', ({ requestId, status }) => {
+            setMyRequests(prev =>
+                prev.map(r => r._id === requestId ? { ...r, status } : r)
+            );
+            const statusMessages = {
+                Accepted: '🔧 A mechanic has accepted your request!',
+                Completed: '✅ Your service has been completed!',
+                Cancelled: '❌ Your request was cancelled.',
+            };
+            if (statusMessages[status]) toast(statusMessages[status]);
         });
 
-        // Also listen if it gets marked completed remotely
         socket.on('serviceCompleted', (reqId) => {
-            if (reqId === activeTracking._id) {
-                toast.success('Your service has been marked complete by the mechanic!');
-                setActiveTracking(null);
-                fetchData();
-            }
+            setMyRequests(prev =>
+                prev.map(r => r._id === reqId ? { ...r, status: 'Completed' } : r)
+            );
         });
 
         return () => socket.disconnect();
-    }, [activeTracking, token]);
+    }, [token]);
 
     const fetchData = async () => {
         setIsLoading(true);
         try {
             const userId = user._id || user.id;
-            const res = await fetch(`http://localhost:5000/api/services/user/${userId}`, {
+            const res = await fetch(`${API}/api/services/user/${userId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
                 const data = await res.json();
                 setMyRequests(data);
-                
-                // Automatically select an active one to track
-                const active = data.find(r => r.status === 'Accepted' || r.status === 'InProgress');
-                if (active) setActiveTracking(active);
             }
-        } catch (error) {
-            console.error('Fetch error:', error);
+        } catch (err) {
             toast.error('Failed to load your requests');
         } finally {
             setIsLoading(false);
         }
     };
 
-    const activeServices = myRequests.filter(req => req.status === 'Pending' || req.status === 'Accepted' || req.status === 'InProgress');
-    const pastServices = myRequests.filter(req => req.status === 'Completed' || req.status === 'Cancelled');
-
-    if (isLoading) return <div className="loading">Loading Your Dashboard...</div>;
-
-    const renderMap = () => {
-        if (!isLoaded || !activeTracking) return <p>Map Loading...</p>;
-
-        const userLoc = {
-            lat: activeTracking.location?.coordinates[1] || 0,
-            lng: activeTracking.location?.coordinates[0] || 0
-        };
-
-        const mapCenter = mechanicCoords || userLoc;
-
-        // Custom dark map styling matching masterpiece theme
-        const mapOptions = {
-            streetViewControl: false,
-            mapTypeControl: false,
-            styles: [
-                { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
-                { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-                { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-                { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
-                { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
-                { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
-            ]
-        };
-
-        return (
-            <div className="map-container fade-in">
-                <GoogleMap
-                    mapContainerStyle={containerStyle}
-                    center={mapCenter}
-                    zoom={14}
-                    options={mapOptions}
-                >
-                    {/* User's Broken Down Location Flag */}
-                    <Marker 
-                        position={userLoc} 
-                        label="YOU"
-                    />
-
-                    {/* Mechanic's Live Location (if active) */}
-                    {mechanicCoords && (
-                        <Marker 
-                            position={mechanicCoords}
-                            icon={{
-                                url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png" 
-                            }}
-                        />
-                    )}
-                </GoogleMap>
-                <div className="tracking-status-bar">
-                    {mechanicCoords ? (
-                        <span className="live-badge">🟢 Mechanic is currently on the way (Tracking Live)</span>
-                    ) : (
-                        <span className="waiting-badge">Waiting for mechanic's location signal...</span>
-                    )}
-                </div>
-            </div>
-        );
+    const handleProfileSave = async () => {
+        setSavingProfile(true);
+        try {
+            const res = await fetch(`${API}/api/users/me`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(profileData)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success('Profile updated!');
+                setEditingProfile(false);
+            } else {
+                toast.error(data.message || 'Failed to update profile');
+            }
+        } catch {
+            toast.error('Server error');
+        } finally {
+            setSavingProfile(false);
+        }
     };
 
-    return (
-        <div className="user-dashboard fade-in">
-            <div className="dashboard-header">
-                <h1>My <span>Requests</span></h1>
-            </div>
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
+    };
 
-            <div className="dashboard-grid">
-                <div className="main-content">
-                    {activeTracking && (
-                        <div className="dashboard-card live-tracking-card" style={{ marginBottom: '2rem' }}>
-                            <h2>Live Tracking: {activeTracking.serviceType}</h2>
-                            <p style={{ color: '#a39585', marginBottom: '1rem' }}>
-                                Mechanic: {activeTracking.mechanicId?.shopName || 'Assigning...'}
-                            </p>
-                            {renderMap()}
-                        </div>
-                    )}
+    const activeServices = myRequests.filter(r => ['Pending', 'Accepted', 'InProgress'].includes(r.status));
+    const pastServices = myRequests.filter(r => ['Completed', 'Cancelled'].includes(r.status));
 
-                    <div className="dashboard-card" style={{ marginBottom: '2rem' }}>
-                        <h2>
-                            <Clock size={24} color="#f59e0b" />
-                            Active Service Requests
-                        </h2>
-                        {activeServices.length === 0 ? (
-                            <p className="no-data">You have no active requests.</p>
-                        ) : (
-                            <div className="request-list">
-                                {activeServices.map(req => (
-                                    <div key={req._id} className="request-item active-item" onClick={() => setActiveTracking(req)} style={{cursor: 'pointer'}}>
-                                        <div className="request-details">
-                                            <h3><Car size={20} color="#D6B588"/> {req.serviceType}</h3>
-                                            <p><MapPin size={16}/> {req.location?.address || 'N/A'}</p>
-                                        </div>
-                                        <div className="request-actions">
-                                            <span className={`status-badge ${req.status.toLowerCase()}`}>{req.status}</span>
-                                            {req.status === 'Pending' && <span style={{fontSize:'0.8rem', color:'#f59e0b'}}>Searching for mechanic...</span>}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+    const SERVICES = [
+        { icon: '⚡', label: 'Battery Jump-start', type: 'Car' },
+        { icon: '🔧', label: 'Engine Check', type: 'Car' },
+        { icon: '🔨', label: 'Tyre Puncture', type: 'Car' },
+        { icon: '⛽', label: 'Fuel Delivery', type: 'Car' },
+        { icon: '🚛', label: 'Towing Service', type: 'Car' },
+        { icon: '🏍️', label: 'Bike Repair', type: 'Bike' },
+        { icon: '🔗', label: 'Chain Repair', type: 'Bike' },
+        { icon: '🆘', label: 'Emergency SOS', type: 'Car' },
+    ];
 
-                    <div className="dashboard-card history-section">
-                        <h2>
-                            <CheckCircle size={24} color="#3b82f6" />
-                            Service History
-                        </h2>
-                        {pastServices.length === 0 ? (
-                            <p className="no-data">No completed services yet.</p>
-                        ) : (
-                            <div className="request-list">
-                                {pastServices.map(req => (
-                                    <div key={req._id} className="request-item">
-                                        <div className="request-details">
-                                            <h3>{req.serviceType}</h3>
-                                            <p>Mechanic: {req.mechanicId?.shopName || 'Unknown'}</p>
-                                            <p>Completed: {new Date(req.completedAt || req.updatedAt).toLocaleDateString()}</p>
-                                        </div>
-                                        <div className="request-actions">
-                                            <span className={`status-badge ${req.status.toLowerCase()}`}>{req.status}</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+    if (isLoading) return (
+        <div className="ud-layout">
+            <div className="ud-sidebar" />
+            <div className="ud-main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ textAlign: 'center', color: '#a39585' }}>
+                    <RefreshCcw size={40} style={{ animation: 'spin 1s linear infinite', color: '#D6B588' }} />
+                    <p style={{ marginTop: '1rem' }}>Loading your dashboard...</p>
                 </div>
             </div>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+    );
+
+    return (
+        <div className="ud-layout">
+            {/* ─── SIDEBAR ─── */}
+            <aside className="ud-sidebar">
+                <div className="ud-brand">
+                    Car<span>Assist</span>
+                </div>
+
+                <div className="ud-user-card">
+                    <div className="ud-avatar">
+                        {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                    </div>
+                    <div>
+                        <div style={{ fontWeight: 700, color: '#fff', fontSize: '0.95rem' }}>{user?.name}</div>
+                        <div style={{ color: '#a39585', fontSize: '0.78rem' }}>{user?.email}</div>
+                        <span className="ud-role-badge">Customer</span>
+                    </div>
+                </div>
+
+                <nav className="ud-nav">
+                    {[
+                        { id: 'requests', icon: <Clock size={20} />, label: 'My Requests' },
+                        { id: 'book', icon: <Wrench size={20} />, label: 'Book Service' },
+                        { id: 'history', icon: <History size={20} />, label: 'History' },
+                        { id: 'profile', icon: <Settings size={20} />, label: 'Profile' },
+                    ].map(tab => (
+                        <button
+                            key={tab.id}
+                            className={`ud-nav-item ${activeTab === tab.id ? 'active' : ''}`}
+                            onClick={() => setActiveTab(tab.id)}
+                        >
+                            {tab.icon}
+                            <span>{tab.label}</span>
+                            {tab.id === 'requests' && activeServices.length > 0 && (
+                                <span className="ud-badge">{activeServices.length}</span>
+                            )}
+                        </button>
+                    ))}
+                </nav>
+
+                <div className="ud-sidebar-footer">
+                    <button className="ud-nav-item" onClick={() => navigate('/')}>
+                        <Home size={20} /> <span>Go Home</span>
+                    </button>
+                    <button className="ud-nav-item logout" onClick={handleLogout}>
+                        <LogOut size={20} /> <span>Logout</span>
+                    </button>
+                </div>
+            </aside>
+
+            {/* ─── MAIN CONTENT ─── */}
+            <main className="ud-main fade-in">
+                <header className="ud-topbar">
+                    <div>
+                        <h1 className="ud-page-title">
+                            {activeTab === 'requests' && 'Active Requests'}
+                            {activeTab === 'book' && 'Book a Service'}
+                            {activeTab === 'history' && 'Service History'}
+                            {activeTab === 'profile' && 'My Profile'}
+                        </h1>
+                        <p className="ud-page-sub">
+                            {activeTab === 'requests' && `You have ${activeServices.length} active request(s)`}
+                            {activeTab === 'book' && 'Choose a service and get help fast'}
+                            {activeTab === 'history' && `${pastServices.length} completed or cancelled service(s)`}
+                            {activeTab === 'profile' && 'Manage your personal details'}
+                        </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                        <button className="ud-icon-btn" onClick={fetchData} title="Refresh">
+                            <RefreshCcw size={18} />
+                        </button>
+                    </div>
+                </header>
+
+                {/* ═══ REQUESTS TAB ═══ */}
+                {activeTab === 'requests' && (
+                    <div className="ud-content">
+                        {activeServices.length === 0 ? (
+                            <div className="ud-empty">
+                                <AlertCircle size={48} color="#a39585" />
+                                <h3>No Active Requests</h3>
+                                <p>Book a service to get started. Our mechanics are standing by!</p>
+                                <button className="ud-btn-primary" onClick={() => setActiveTab('book')}>
+                                    Book a Service
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="ud-cards-grid">
+                                {activeServices.map(req => (
+                                    <div key={req._id} className="ud-request-card">
+                                        <div className="ud-card-header">
+                                            <div>
+                                                <h3>{req.serviceType}</h3>
+                                                <p style={{ color: '#a39585', fontSize: '0.85rem', marginTop: '4px' }}>
+                                                    <Car size={14} style={{ display: 'inline', marginRight: '4px' }} />
+                                                    {req.vehicleType}
+                                                </p>
+                                            </div>
+                                            <StatusBadge status={req.status} />
+                                        </div>
+                                        <div className="ud-card-body">
+                                            <div className="ud-info-row">
+                                                <MapPin size={14} color="#a39585" />
+                                                <span>{req.location?.address || 'Location not set'}</span>
+                                            </div>
+                                            {req.mechanicId && (
+                                                <div className="ud-info-row">
+                                                    <Wrench size={14} color="#D6B588" />
+                                                    <span style={{ color: '#D6B588' }}>
+                                                        Mechanic: {req.mechanicId.shopName || 'Assigned'}
+                                                    </span>
+                                                </div>
+                                            )}
+                                            {req.description && (
+                                                <div className="ud-info-row">
+                                                    <span style={{ color: '#a39585', fontSize: '0.85rem', fontStyle: 'italic' }}>
+                                                        "{req.description}"
+                                                    </span>
+                                                </div>
+                                            )}
+                                            <div className="ud-info-row">
+                                                <Clock size={14} color="#a39585" />
+                                                <span>{new Date(req.createdAt).toLocaleString()}</span>
+                                            </div>
+                                        </div>
+                                        <div className="ud-card-footer">
+                                            <span style={{
+                                                display: 'flex', alignItems: 'center', gap: '6px',
+                                                color: req.paymentStatus === 'Paid' ? '#10b981' : '#f59e0b',
+                                                fontSize: '0.82rem', fontWeight: 600
+                                            }}>
+                                                <CreditCard size={14} />
+                                                Payment: {req.paymentStatus}
+                                            </span>
+                                            {req.status === 'Pending' && (
+                                                <span style={{ fontSize: '0.8rem', color: '#f59e0b', fontStyle: 'italic' }}>
+                                                    Searching for mechanic...
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ═══ BOOK SERVICE TAB ═══ */}
+                {activeTab === 'book' && (
+                    <div className="ud-content">
+                        <div className="ud-section-header">
+                            <h2>Available Services</h2>
+                            <p>Select a service type to begin your booking</p>
+                        </div>
+                        <div className="ud-services-grid">
+                            {SERVICES.map((svc, i) => (
+                                <button
+                                    key={i}
+                                    className="ud-service-card"
+                                    onClick={() => navigate('/book-assistance', {
+                                        state: { serviceType: svc.label, vehicleType: svc.type }
+                                    })}
+                                >
+                                    <div className="ud-service-icon">{svc.icon}</div>
+                                    <div className="ud-service-label">{svc.label}</div>
+                                    <div className="ud-service-type">{svc.type}</div>
+                                </button>
+                            ))}
+                        </div>
+
+                        <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+                            <p style={{ color: '#a39585', marginBottom: '1rem' }}>
+                                Or fill in a custom service request
+                            </p>
+                            <button
+                                className="ud-btn-primary"
+                                onClick={() => navigate('/book-assistance')}
+                            >
+                                Custom Booking Form
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* ═══ HISTORY TAB ═══ */}
+                {activeTab === 'history' && (
+                    <div className="ud-content">
+                        {pastServices.length === 0 ? (
+                            <div className="ud-empty">
+                                <History size={48} color="#a39585" />
+                                <h3>No Service History</h3>
+                                <p>Your completed and cancelled services will appear here.</p>
+                            </div>
+                        ) : (
+                            <div className="ud-history-list">
+                                {pastServices.map(req => (
+                                    <div key={req._id} className="ud-history-item">
+                                        <div className="ud-history-left">
+                                            <div className="ud-history-icon">
+                                                {req.status === 'Completed' ? <CheckCircle size={20} color="#10b981" /> : <X size={20} color="#ef4444" />}
+                                            </div>
+                                            <div>
+                                                <div style={{ fontWeight: 700, color: '#fff' }}>{req.serviceType}</div>
+                                                <div style={{ color: '#a39585', fontSize: '0.82rem', marginTop: '2px' }}>
+                                                    {req.vehicleType} • {req.location?.address || 'N/A'}
+                                                </div>
+                                                {req.mechanicId && (
+                                                    <div style={{ color: '#D6B588', fontSize: '0.82rem', marginTop: '2px' }}>
+                                                        Mechanic: {req.mechanicId.shopName}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="ud-history-right">
+                                            <StatusBadge status={req.status} />
+                                            <div style={{ color: '#a39585', fontSize: '0.78rem', marginTop: '6px', textAlign: 'right' }}>
+                                                {new Date(req.completedAt || req.updatedAt || req.createdAt).toLocaleDateString()}
+                                            </div>
+                                            <div style={{
+                                                color: req.paymentStatus === 'Paid' ? '#10b981' : '#f59e0b',
+                                                fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', marginTop: '4px'
+                                            }}>
+                                                <CreditCard size={12} /> {req.paymentStatus}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ═══ PROFILE TAB ═══ */}
+                {activeTab === 'profile' && (
+                    <div className="ud-content">
+                        <div className="ud-profile-card">
+                            <div className="ud-profile-hero">
+                                <div className="ud-profile-avatar">
+                                    {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                                </div>
+                                <div>
+                                    <h2 style={{ color: '#fff', margin: 0 }}>{user?.name}</h2>
+                                    <span className="ud-role-badge" style={{ marginTop: '8px', display: 'inline-block' }}>
+                                        Customer Account
+                                    </span>
+                                </div>
+                                {!editingProfile && (
+                                    <button
+                                        className="ud-icon-btn"
+                                        onClick={() => setEditingProfile(true)}
+                                        style={{ marginLeft: 'auto' }}
+                                    >
+                                        <Edit3 size={18} />
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="ud-profile-fields">
+                                <div className="ud-field-group">
+                                    <label>
+                                        <User size={14} /> Full Name
+                                    </label>
+                                    {editingProfile ? (
+                                        <input
+                                            type="text"
+                                            value={profileData.name}
+                                            onChange={e => setProfileData({ ...profileData, name: e.target.value })}
+                                            className="ud-profile-input"
+                                        />
+                                    ) : (
+                                        <div className="ud-field-value">{user?.name || '—'}</div>
+                                    )}
+                                </div>
+
+                                <div className="ud-field-group">
+                                    <label>
+                                        <Mail size={14} /> Email Address
+                                    </label>
+                                    <div className="ud-field-value ud-field-readonly">{user?.email}</div>
+                                </div>
+
+                                <div className="ud-field-group">
+                                    <label>
+                                        <Phone size={14} /> Phone Number
+                                    </label>
+                                    {editingProfile ? (
+                                        <input
+                                            type="tel"
+                                            value={profileData.phone}
+                                            onChange={e => setProfileData({ ...profileData, phone: e.target.value })}
+                                            className="ud-profile-input"
+                                        />
+                                    ) : (
+                                        <div className="ud-field-value">{user?.phone || 'Not set'}</div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {editingProfile && (
+                                <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                                    <button
+                                        className="ud-btn-primary"
+                                        onClick={handleProfileSave}
+                                        disabled={savingProfile}
+                                    >
+                                        <Save size={16} />
+                                        {savingProfile ? 'Saving...' : 'Save Changes'}
+                                    </button>
+                                    <button
+                                        className="ud-btn-secondary"
+                                        onClick={() => {
+                                            setEditingProfile(false);
+                                            setProfileData({ name: user?.name || '', phone: user?.phone || '' });
+                                        }}
+                                    >
+                                        <X size={16} /> Cancel
+                                    </button>
+                                </div>
+                            )}
+
+                            <div className="ud-stats-row">
+                                <div className="ud-stat-pill">
+                                    <span className="ud-stat-num">{myRequests.length}</span>
+                                    <span className="ud-stat-label">Total Requests</span>
+                                </div>
+                                <div className="ud-stat-pill">
+                                    <span className="ud-stat-num">{pastServices.filter(r => r.status === 'Completed').length}</span>
+                                    <span className="ud-stat-label">Completed</span>
+                                </div>
+                                <div className="ud-stat-pill">
+                                    <span className="ud-stat-num">{activeServices.length}</span>
+                                    <span className="ud-stat-label">Active</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </main>
+
+            <style>{`
+                @keyframes spin { to { transform: rotate(360deg); } }
+            `}</style>
         </div>
     );
 };
