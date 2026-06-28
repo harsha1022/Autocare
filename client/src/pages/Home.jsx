@@ -7,11 +7,14 @@ import {
     Car, Bike, Zap, Truck, Clock, CheckCircle, X,
     MapPin, Wrench, CreditCard, User, Phone, Mail,
     Edit3, Save, RefreshCcw, AlertCircle, History,
-    ChevronRight, ArrowRight
+    ChevronRight, ArrowRight, MessageCircle
 } from 'lucide-react';
 import './Home.css';
+import ChatBox from '../components/ChatBox';
+import LiveTrackingMap from '../components/LiveTrackingMap';
+import RatingWidget from '../components/RatingWidget';
 
-const API = 'http://localhost:5000';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const STATUS_META = {
     Pending:    { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.25)' },
@@ -143,14 +146,26 @@ const UserSmartHome = ({ user, token }) => {
     const [profileData, setProfileData] = useState({ name: user?.name || '', phone: user?.phone || '' });
     const [savingProfile, setSavingProfile] = useState(false);
     const [activeSection, setActiveSection] = useState('home'); // home | profile
+    const [activeChatRequest, setActiveChatRequest] = useState(null);
 
     useEffect(() => {
         fetchRequests();
         // Live socket — update request status in real-time
         const socket = io(API);
-        socket.on('requestStatusUpdate', ({ requestId, status }) => {
-            setRequests(prev => prev.map(r => r._id === requestId ? { ...r, status } : r));
-            const msgs = { Accepted: '🔧 A mechanic accepted your request!', Completed: '✅ Service completed!', Cancelled: '❌ Request was cancelled.' };
+        socket.on('requestStatusUpdate', ({ requestId, status, request }) => {
+            if (request && status === 'Accepted') {
+                setRequests(prev => prev.map(r => r._id === requestId ? request : r));
+            } else {
+                setRequests(prev => prev.map(r => r._id === requestId ? { ...r, status } : r));
+            }
+            const msgs = { 
+                Accepted: '🔧 A mechanic accepted your request!', 
+                OnTheWay: '🚗 Your mechanic is on the way!',
+                Arrived: '📍 Your mechanic has arrived!',
+                InProgress: '⚙️ Service has started',
+                Completed: '✅ Service completed!', 
+                Cancelled: '❌ Request was cancelled.' 
+            };
             if (msgs[status]) toast(msgs[status]);
         });
         return () => socket.disconnect();
@@ -183,7 +198,7 @@ const UserSmartHome = ({ user, token }) => {
         finally { setSavingProfile(false); }
     };
 
-    const activeReqs  = requests.filter(r => ['Pending', 'Accepted', 'InProgress'].includes(r.status));
+    const activeReqs  = requests.filter(r => ['Pending', 'Accepted', 'OnTheWay', 'Arrived', 'InProgress'].includes(r.status));
     const historyReqs = requests.filter(r => ['Completed', 'Cancelled'].includes(r.status));
 
     return (
@@ -313,6 +328,18 @@ const UserSmartHome = ({ user, token }) => {
                                                 <span className="sh-pulse-dot" /> Searching for a nearby mechanic...
                                             </div>
                                         )}
+                                        {['Accepted', 'OnTheWay', 'Arrived', 'InProgress'].includes(req.status) && (
+                                            <div style={{ marginTop: '12px' }}>
+                                                <LiveTrackingMap requestId={req._id} initialLocation={req.location} />
+                                                <button 
+                                                    className="btn-primary" 
+                                                    style={{ width: '100%', marginTop: '10px', display: 'flex', justifyContent: 'center', gap: '6px', alignItems: 'center' }}
+                                                    onClick={() => setActiveChatRequest(req._id)}
+                                                >
+                                                    <MessageCircle size={16} /> Chat with Mechanic
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -328,29 +355,47 @@ const UserSmartHome = ({ user, token }) => {
                             </div>
                             <div className="sh-history-list">
                                 {historyReqs.slice(0, 4).map(req => (
-                                    <div key={req._id} className="sh-history-row">
-                                        <div className="sh-hist-icon">
-                                            {req.status === 'Completed'
-                                                ? <CheckCircle size={16} color="#10b981" />
-                                                : <X size={16} color="#ef4444" />}
+                                    <div key={req._id} style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '16px', marginBottom: '16px' }}>
+                                        <div className="sh-history-row" style={{ borderBottom: 'none', paddingBottom: 0, marginBottom: 0 }}>
+                                            <div className="sh-hist-icon">
+                                                {req.status === 'Completed'
+                                                    ? <CheckCircle size={16} color="#10b981" />
+                                                    : <X size={16} color="#ef4444" />}
+                                            </div>
+                                            <div className="sh-hist-info">
+                                                <span className="sh-hist-title">{req.serviceType}</span>
+                                                <span className="sh-hist-sub">
+                                                    {req.vehicleType} •{' '}
+                                                    {req.mechanicId?.shopName || 'Unassigned'} •{' '}
+                                                    {new Date(req.completedAt || req.createdAt).toLocaleDateString()}
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
+                                                <StatusPill status={req.status} />
+                                                <button
+                                                    className="sh-rebook-btn"
+                                                    onClick={() => navigate('/book-assistance', { state: { serviceType: req.serviceType, vehicleType: req.vehicleType } })}
+                                                >
+                                                    Rebook
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div className="sh-hist-info">
-                                            <span className="sh-hist-title">{req.serviceType}</span>
-                                            <span className="sh-hist-sub">
-                                                {req.vehicleType} •{' '}
-                                                {req.mechanicId?.shopName || 'Unassigned'} •{' '}
-                                                {new Date(req.completedAt || req.createdAt).toLocaleDateString()}
-                                            </span>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
-                                            <StatusPill status={req.status} />
-                                            <button
-                                                className="sh-rebook-btn"
-                                                onClick={() => navigate('/book-assistance', { state: { serviceType: req.serviceType, vehicleType: req.vehicleType } })}
-                                            >
-                                                Rebook
-                                            </button>
-                                        </div>
+                                        
+                                        {req.status === 'Completed' && !req.review?.rating && (
+                                            <div style={{ marginLeft: '40px' }}>
+                                                <RatingWidget 
+                                                    requestId={req._id} 
+                                                    onReviewSubmitted={(review) => {
+                                                        setRequests(prev => prev.map(r => r._id === req._id ? { ...r, review } : r));
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
+                                        {req.review?.rating && (
+                                            <div style={{ fontSize: '0.85rem', color: '#f59e0b', marginLeft: '40px', fontWeight: 600 }}>
+                                                ⭐ {req.review.rating}/5 {req.review.feedback ? `- "${req.review.feedback}"` : ''}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -424,6 +469,13 @@ const UserSmartHome = ({ user, token }) => {
                         </div>
                     </section>
                 </div>
+            )}
+
+            {activeChatRequest && (
+                <ChatBox 
+                    requestId={activeChatRequest} 
+                    onClose={() => setActiveChatRequest(null)} 
+                />
             )}
 
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>

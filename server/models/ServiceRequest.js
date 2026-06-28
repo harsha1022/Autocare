@@ -13,13 +13,20 @@ const ServiceRequestSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Pending', 'Accepted', 'InProgress', 'Completed', 'Cancelled'],
+        enum: ['Pending', 'Accepted', 'OnTheWay', 'Arrived', 'InProgress', 'Completed', 'Cancelled'],
         default: 'Pending'
     },
     paymentStatus: { type: String, enum: ['Pending', 'Paid'], default: 'Pending' },
-    paymentMethod: { type: String, enum: ['Cash', 'Online'] },
+    paymentMethod: { type: String, enum: ['Cash', 'Online'], default: 'Cash' },
+    declinedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Mechanic' }],
     createdAt: { type: Date, default: Date.now },
-    completedAt: { type: Date }
+    completedAt: { type: Date },
+    review: {
+        rating: { type: Number, min: 1, max: 5 },
+        feedback: { type: String, trim: true },
+        createdAt: { type: Date }
+    }
+
 });
 
 module.exports = mongoose.model('ServiceRequest', ServiceRequestSchema);

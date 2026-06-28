@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -7,19 +7,23 @@ import { io } from 'socket.io-client';
 import {
     Car, Bike, MapPin, Clock, CheckCircle, AlertCircle, Calendar,
     LogOut, Home, Settings, Wrench, TrendingUp, RefreshCcw,
-    ToggleLeft, ToggleRight, User, Star, X, History, DollarSign
+    ToggleLeft, ToggleRight, User, Star, X, History, DollarSign,
+    QrCode, Upload, Trash2, Copy, Link, MessageCircle
 } from 'lucide-react';
 import './MechanicDashboard.css';
+import ChatBox from '../components/ChatBox';
 
-const API = 'http://localhost:5000';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const COLORS = ['#D6B588', '#C6C0B9', '#705E46', '#10b981', '#3b82f6'];
 
 const StatusBadge = ({ status }) => {
     const map = {
         Pending: { bg: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: 'rgba(245,158,11,0.3)' },
         Accepted: { bg: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: 'rgba(59,130,246,0.3)' },
+        OnTheWay: { bg: 'rgba(214,181,136,0.15)', color: '#D6B588', border: 'rgba(214,181,136,0.3)' },
+        Arrived: { bg: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: 'rgba(245,158,11,0.3)' },
         InProgress: { bg: 'rgba(16,185,129,0.15)', color: '#10b981', border: 'rgba(16,185,129,0.3)' },
-        Completed: { bg: 'rgba(214,181,136,0.15)', color: '#D6B588', border: 'rgba(214,181,136,0.3)' },
+        Completed: { bg: 'rgba(16,185,129,0.15)', color: '#10b981', border: 'rgba(16,185,129,0.3)' },
         Cancelled: { bg: 'rgba(239,68,68,0.15)', color: '#ef4444', border: 'rgba(239,68,68,0.3)' },
     };
     const s = map[status] || map.Pending;
@@ -47,6 +51,14 @@ const MechanicDashboard = () => {
     const [isAvailable, setIsAvailable] = useState(true);
     const [isLoading, setIsLoading] = useState(true);
     const [togglingAvailability, setTogglingAvailability] = useState(false);
+    const [activeChatRequest, setActiveChatRequest] = useState(null);
+
+    // Payment QR state
+    const [qrPreview, setQrPreview] = useState('');
+    const [qrUpiId, setQrUpiId] = useState('');
+    const [savingQR, setSavingQR] = useState(false);
+    const [qrDragOver, setQrDragOver] = useState(false);
+    const qrFileRef = useRef(null);
 
     // Fetch mechanic profile
     useEffect(() => {
@@ -60,6 +72,9 @@ const MechanicDashboard = () => {
                     setMechanicId(data._id);
                     setMechanicProfile(data);
                     setIsAvailable(data.availability);
+                    // Load saved QR data
+                    if (data.paymentQR) setQrPreview(data.paymentQR);
+                    if (data.paymentUpiId) setQrUpiId(data.paymentUpiId);
                 } else {
                     toast.error('Mechanic profile not found');
                     navigate('/');
@@ -76,10 +91,10 @@ const MechanicDashboard = () => {
         if (mechanicId) fetchData();
     }, [mechanicId]);
 
-    // Fetch earnings
+    // Fetch earnings when earnings tab is active
     useEffect(() => {
         if (token && activeTab === 'earnings') fetchEarnings();
-    }, [activeTab]);
+    }, [activeTab, token]);
 
     // Socket.io
     useEffect(() => {
@@ -164,8 +179,11 @@ const MechanicDashboard = () => {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {
+                const updatedReq = await res.json();
                 toast.success('Request accepted!');
                 setPendingRequests(prev => prev.filter(r => r._id !== id));
+                setMyRequests(prev => [updatedReq, ...prev.filter(r => r._id !== id)]);
+                // We still call fetchData() to ensure everything is synced, but UI updates instantly
                 fetchData();
             } else {
                 const err = await res.json();
@@ -197,13 +215,21 @@ const MechanicDashboard = () => {
     };
 
     const handleComplete = async (id) => {
+        handleUpdateStatus(id, 'Completed');
+    };
+
+    const handleUpdateStatus = async (id, status) => {
         try {
-            const res = await fetch(`${API}/api/services/${id}/complete`, {
+            const res = await fetch(`${API}/api/services/${id}/status`, {
                 method: 'PUT',
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ status })
             });
             if (res.ok) {
-                toast.success('Service marked complete!');
+                toast.success(`Status updated to ${status}`);
                 fetchData();
             } else {
                 const err = await res.json();
@@ -235,7 +261,57 @@ const MechanicDashboard = () => {
 
     const handleLogout = () => { logout(); navigate('/login'); };
 
-    const activeJobs = myRequests.filter(r => r.status === 'Accepted' || r.status === 'InProgress');
+    // ── QR Handlers ──────────────────────────────────────────────────────────
+    const handleQRFile = (file) => {
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please upload an image file (PNG, JPG, etc.)');
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            toast.error('Image must be smaller than 2MB');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => setQrPreview(e.target.result);
+        reader.readAsDataURL(file);
+    };
+
+    const savePaymentQR = async () => {
+        setSavingQR(true);
+        try {
+            const res = await fetch(`${API}/api/mechanics/payment-qr`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ paymentQR: qrPreview, paymentUpiId: qrUpiId })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success('Payment QR saved successfully!');
+                setMechanicProfile(prev => ({ ...prev, paymentQR: qrPreview, paymentUpiId: qrUpiId }));
+            } else {
+                toast.error(data.message || 'Failed to save QR');
+            }
+        } catch { toast.error('Server error'); }
+        finally { setSavingQR(false); }
+    };
+
+    const removeQR = async () => {
+        setQrPreview('');
+        setSavingQR(true);
+        try {
+            await fetch(`${API}/api/mechanics/payment-qr`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ paymentQR: '', paymentUpiId: qrUpiId })
+            });
+            toast('QR removed', { icon: '🗑️' });
+            setMechanicProfile(prev => ({ ...prev, paymentQR: '' }));
+        } catch { toast.error('Server error'); }
+        finally { setSavingQR(false); }
+    };
+
+    const activeJobs = myRequests.filter(r => ['Accepted', 'OnTheWay', 'Arrived', 'InProgress'].includes(r.status));
     const pastJobs = myRequests.filter(r => r.status === 'Completed' || r.status === 'Cancelled');
 
     const serviceStatsMap = myRequests
@@ -412,9 +488,33 @@ const MechanicDashboard = () => {
                                                 {req.userId?.phone && <span>📞 {req.userId.phone}</span>}
                                                 {req.description && <span style={{ fontStyle: 'italic', color: '#a39585' }}>"{req.description}"</span>}
                                             </div>
-                                            <div className="md-card-actions">
-                                                <button className="md-btn-complete" onClick={() => handleComplete(req._id)}>
-                                                    <CheckCircle size={16} /> Mark Completed
+                                            <div className="md-card-actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                                {req.status === 'Accepted' && (
+                                                    <button className="md-btn-complete" style={{ flex: 1, background: '#D6B588', color: '#000', borderColor: '#D6B588' }} onClick={() => handleUpdateStatus(req._id, 'OnTheWay')}>
+                                                        <Car size={16} /> Mark On The Way
+                                                    </button>
+                                                )}
+                                                {req.status === 'OnTheWay' && (
+                                                    <button className="md-btn-complete" style={{ flex: 1, background: '#f59e0b', color: '#000', borderColor: '#f59e0b' }} onClick={() => handleUpdateStatus(req._id, 'Arrived')}>
+                                                        <MapPin size={16} /> Mark Arrived
+                                                    </button>
+                                                )}
+                                                {req.status === 'Arrived' && (
+                                                    <button className="md-btn-complete" style={{ flex: 1, background: '#3b82f6', color: '#fff', borderColor: '#3b82f6' }} onClick={() => handleUpdateStatus(req._id, 'InProgress')}>
+                                                        <Wrench size={16} /> Start Service
+                                                    </button>
+                                                )}
+                                                {req.status === 'InProgress' && (
+                                                    <button className="md-btn-complete" style={{ flex: 1 }} onClick={() => handleUpdateStatus(req._id, 'Completed')}>
+                                                        <CheckCircle size={16} /> Mark Completed
+                                                    </button>
+                                                )}
+                                                <button 
+                                                    className="md-btn-reject" 
+                                                    style={{ flex: 1, background: '#3b82f6', color: '#fff', borderColor: '#3b82f6' }} 
+                                                    onClick={() => setActiveChatRequest(req._id)}
+                                                >
+                                                    <MessageCircle size={16} /> Chat
                                                 </button>
                                             </div>
                                         </div>
@@ -593,10 +693,91 @@ const MechanicDashboard = () => {
                                     </div>
                                 ))}
                             </div>
+
+                            {/* ── Payment QR Section ── */}
+                            <div className="md-qr-card">
+                                <div className="md-qr-card-header">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                        <QrCode size={20} color="#D6B588" />
+                                        <div>
+                                            <h3 style={{ margin: 0, color: '#fff', fontSize: '1rem' }}>Payment QR Code</h3>
+                                            <p style={{ margin: 0, color: '#a39585', fontSize: '0.8rem' }}>Customers scan this to pay you directly</p>
+                                        </div>
+                                    </div>
+                                    {qrPreview && (
+                                        <button className="md-qr-remove-btn" onClick={removeQR} title="Remove QR">
+                                            <Trash2 size={15} /> Remove
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className="md-qr-body">
+                                    {/* Upload Drop Zone */}
+                                    <div
+                                        className={`md-qr-dropzone ${qrDragOver ? 'drag-over' : ''} ${qrPreview ? 'has-preview' : ''}`}
+                                        onClick={() => qrFileRef.current?.click()}
+                                        onDragOver={e => { e.preventDefault(); setQrDragOver(true); }}
+                                        onDragLeave={() => setQrDragOver(false)}
+                                        onDrop={e => { e.preventDefault(); setQrDragOver(false); handleQRFile(e.dataTransfer.files[0]); }}
+                                    >
+                                        {qrPreview ? (
+                                            <img src={qrPreview} alt="Payment QR" className="md-qr-preview" />
+                                        ) : (
+                                            <div className="md-qr-placeholder">
+                                                <Upload size={32} color="#D6B588" />
+                                                <p>Click or drag & drop your QR code image</p>
+                                                <span>PNG, JPG up to 2MB</span>
+                                            </div>
+                                        )}
+                                        <input
+                                            ref={qrFileRef}
+                                            type="file"
+                                            accept="image/*"
+                                            style={{ display: 'none' }}
+                                            onChange={e => handleQRFile(e.target.files[0])}
+                                        />
+                                    </div>
+
+                                    {/* UPI ID Input */}
+                                    <div className="md-qr-upi">
+                                        <label><Link size={13} /> UPI ID <span style={{ color: '#a39585', fontWeight: 400 }}>(optional)</span></label>
+                                        <input
+                                            type="text"
+                                            className="md-qr-upi-input"
+                                            placeholder="yourname@upi or yourname@paytm"
+                                            value={qrUpiId}
+                                            onChange={e => setQrUpiId(e.target.value)}
+                                        />
+                                        {qrUpiId && (
+                                            <button
+                                                className="md-qr-copy-btn"
+                                                onClick={() => { navigator.clipboard.writeText(qrUpiId); toast.success('UPI ID copied!'); }}
+                                            >
+                                                <Copy size={13} /> Copy
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <button
+                                    className="md-qr-save-btn"
+                                    onClick={savePaymentQR}
+                                    disabled={savingQR || (!qrPreview && !qrUpiId)}
+                                >
+                                    {savingQR ? 'Saving...' : '💾 Save Payment QR'}
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
             </main>
+
+            {activeChatRequest && (
+                <ChatBox 
+                    requestId={activeChatRequest} 
+                    onClose={() => setActiveChatRequest(null)} 
+                />
+            )}
 
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>

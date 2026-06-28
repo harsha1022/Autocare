@@ -5,6 +5,8 @@ import toast from 'react-hot-toast';
 import { Mail, Lock, User, Phone, Eye, EyeOff, Car } from 'lucide-react';
 import './Form.css';
 
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const ROLE_REDIRECTS = {
     admin: '/admin',
     mechanic: '/mechanic-dashboard',
@@ -33,7 +35,7 @@ const Auth = () => {
         e.preventDefault();
         setIsLoading(true);
         const endpoint = isLogin ? '/api/users/login' : '/api/users/register';
-        const url = `http://localhost:5000${endpoint}`;
+        const url = `${API}${endpoint}`;
 
         try {
             const response = await fetch(url, {
@@ -69,17 +71,17 @@ const Auth = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
                     <div style={{
                         width: '44px', height: '44px',
-                        background: 'linear-gradient(135deg, #D6B588, #b8935a)',
+                        background: 'var(--primary)',
                         borderRadius: '12px',
                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                     }}>
-                        <Car size={22} color="#1e140a" />
+                        <Car size={22} color="#ffffff" />
                     </div>
                     <h1 style={{ margin: 0 }}>
                         {isLogin ? 'Welcome Back' : 'Join'} <span>CarAssist</span>
                     </h1>
                 </div>
-                <p style={{ color: '#a39585', marginBottom: '2rem', fontSize: '0.9rem' }}>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.9rem' }}>
                     {isLogin ? 'Sign in to access your dashboard' : 'Create your account to get started'}
                 </p>
 
@@ -88,7 +90,7 @@ const Auth = () => {
                         <div className="form-group">
                             <label>Full Name</label>
                             <div style={{ position: 'relative' }}>
-                                <User size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#a39585' }} />
+                                <User size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                                 <input
                                     type="text"
                                     name="name"
@@ -105,7 +107,7 @@ const Auth = () => {
                     <div className="form-group">
                         <label>Email Address</label>
                         <div style={{ position: 'relative' }}>
-                            <Mail size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#a39585' }} />
+                            <Mail size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                             <input
                                 type="email"
                                 name="email"
@@ -121,7 +123,7 @@ const Auth = () => {
                     <div className="form-group">
                         <label>Password</label>
                         <div style={{ position: 'relative' }}>
-                            <Lock size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#a39585' }} />
+                            <Lock size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                             <input
                                 type={showPassword ? 'text' : 'password'}
                                 name="password"
@@ -136,7 +138,7 @@ const Auth = () => {
                                 onClick={() => setShowPassword(!showPassword)}
                                 style={{
                                     position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)',
-                                    background: 'none', border: 'none', cursor: 'pointer', color: '#a39585', padding: 0
+                                    background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0
                                 }}
                             >
                                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -148,7 +150,7 @@ const Auth = () => {
                         <div className="form-group">
                             <label>Phone Number</label>
                             <div style={{ position: 'relative' }}>
-                                <Phone size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#a39585' }} />
+                                <Phone size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                                 <input
                                     type="tel"
                                     name="phone"
@@ -167,8 +169,8 @@ const Auth = () => {
                             <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                                 <span style={{
                                     width: '16px', height: '16px',
-                                    border: '2px solid rgba(30,20,10,0.3)',
-                                    borderTop: '2px solid #1e140a',
+                                    border: '2px solid rgba(255,255,255,0.3)',
+                                    borderTop: '2px solid #ffffff',
                                     borderRadius: '50%',
                                     animation: 'spin 0.8s linear infinite',
                                     display: 'inline-block'
@@ -181,13 +183,13 @@ const Auth = () => {
                     </button>
                 </form>
 
-                <p style={{ marginTop: '1.5rem', textAlign: 'center', color: '#a39585' }}>
+                <p style={{ marginTop: '1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
                     {isLogin ? "Don't have an account?" : "Already have an account?"}
                     <button
                         onClick={() => setIsLogin(!isLogin)}
                         style={{
                             background: 'none', border: 'none',
-                            color: '#D6B588', marginLeft: '0.5rem',
+                            color: 'var(--primary)', marginLeft: '0.5rem',
                             fontWeight: 700, cursor: 'pointer', fontSize: 'inherit'
                         }}
                     >

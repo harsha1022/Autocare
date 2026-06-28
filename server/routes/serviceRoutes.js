@@ -4,10 +4,15 @@ const ServiceRequest = require('../models/ServiceRequest');
 const authMiddleware = require('../middleware/authMiddleware');
 const validate = require('../middleware/validate');
 const { serviceRequestSchema } = require('../validators/serviceValidator');
+const { getIO } = require('../socket'); // ✅ Fixed: use shared socket module, no circular dep
 
 // ─── CREATE SERVICE REQUEST ───────────────────────────────────────────────────
 router.post('/request', authMiddleware, validate(serviceRequestSchema), async (req, res) => {
     try {
+        if (req.user.role !== 'user') {
+            return res.status(403).json({ message: 'Only registered users can create service requests' });
+        }
+
         const reqBody = { ...req.body };
         if (reqBody.location && !reqBody.location.coordinates) {
             reqBody.location.type = 'Point';
@@ -22,7 +27,7 @@ router.post('/request', authMiddleware, validate(serviceRequestSchema), async (r
 
         const populatedRequest = await ServiceRequest.findById(savedRequest._id).populate('userId');
 
-        const { io } = require('../index');
+        const io = getIO();
         if (io) {
             io.emit('newServiceRequest', populatedRequest);
         }
@@ -60,7 +65,19 @@ router.get('/mechanic/:mechanicId', authMiddleware, async (req, res) => {
 // ─── GET ALL PENDING REQUESTS (for mechanics) ─────────────────────────────────
 router.get('/pending', authMiddleware, async (req, res) => {
     try {
-        const requests = await ServiceRequest.find({ status: 'Pending' })
+        if (req.user.role !== 'mechanic') {
+            return res.status(403).json({ message: 'Only mechanics can view pending requests' });
+        }
+
+        const mechanic = await require('../models/Mechanic').findOne({ userId: req.user.id });
+        if (!mechanic) {
+            return res.status(403).json({ message: 'Only registered mechanics can view pending requests' });
+        }
+
+        const requests = await ServiceRequest.find({ 
+            status: 'Pending',
+            declinedBy: { $ne: mechanic._id } 
+        })
             .populate('userId', 'name email phone')
             .sort({ createdAt: -1 });
         res.status(200).json(requests);
@@ -72,6 +89,10 @@ router.get('/pending', authMiddleware, async (req, res) => {
 // ─── ACCEPT A SERVICE REQUEST ─────────────────────────────────────────────────
 router.put('/:id/accept', authMiddleware, async (req, res) => {
     try {
+        if (req.user.role !== 'mechanic') {
+            return res.status(403).json({ message: 'Only registered mechanics can accept requests' });
+        }
+
         const mechanic = await require('../models/Mechanic').findOne({ userId: req.user.id });
         if (!mechanic) {
             return res.status(403).json({ message: 'Only registered mechanics can accept requests' });
@@ -81,7 +102,9 @@ router.put('/:id/accept', authMiddleware, async (req, res) => {
             { _id: req.params.id, status: 'Pending' },
             { $set: { status: 'Accepted', mechanicId: mechanic._id } },
             { new: true }
-        );
+        )
+        .populate('userId', 'name email phone')
+        .populate('mechanicId', 'shopName rating');
 
         if (!updatedRequest) {
             const checkRequest = await ServiceRequest.findById(req.params.id);
@@ -89,10 +112,15 @@ router.put('/:id/accept', authMiddleware, async (req, res) => {
             return res.status(400).json({ message: 'Request already accepted by another mechanic' });
         }
 
-        const { io } = require('../index');
+        const io = getIO();
         if (io) {
             io.emit('requestAccepted', req.params.id);
-            io.emit('requestStatusUpdate', { requestId: req.params.id, status: 'Accepted', mechanicId: mechanic._id });
+            io.emit('requestStatusUpdate', { 
+                requestId: req.params.id, 
+                status: 'Accepted', 
+                mechanicId: mechanic._id,
+                request: updatedRequest 
+            });
         }
 
         res.status(200).json(updatedRequest);
@@ -104,6 +132,10 @@ router.put('/:id/accept', authMiddleware, async (req, res) => {
 // ─── REJECT / DECLINE A SERVICE REQUEST ──────────────────────────────────────
 router.put('/:id/reject', authMiddleware, async (req, res) => {
     try {
+        if (req.user.role !== 'mechanic') {
+            return res.status(403).json({ message: 'Only registered mechanics can reject requests' });
+        }
+
         const mechanic = await require('../models/Mechanic').findOne({ userId: req.user.id });
         if (!mechanic) {
             return res.status(403).json({ message: 'Only registered mechanics can reject requests' });
@@ -116,19 +148,22 @@ router.put('/:id/reject', authMiddleware, async (req, res) => {
             return res.status(400).json({ message: 'Request cannot be rejected in its current state' });
         }
 
-        // If this mechanic was assigned, free it back to Pending; else just leave it
+        // If this mechanic was assigned, free it back to Pending
         if (request.mechanicId && request.mechanicId.toString() === mechanic._id.toString()) {
             request.status = 'Pending';
             request.mechanicId = null;
         } else if (request.status === 'Pending') {
-            // Mechanic declining before accepting — mark cancelled
-            request.status = 'Cancelled';
+            // Mechanic declining before accepting — hide it for this mechanic
+            if (!request.declinedBy.includes(mechanic._id)) {
+                request.declinedBy.push(mechanic._id);
+            }
         }
 
         await request.save();
 
-        const { io } = require('../index');
-        if (io) {
+        const io = getIO();
+        if (io && request.mechanicId === null) {
+            // Only emit status update if the global status actually changed (e.g. un-assigning)
             io.emit('requestStatusUpdate', { requestId: req.params.id, status: request.status });
         }
 
@@ -138,9 +173,57 @@ router.put('/:id/reject', authMiddleware, async (req, res) => {
     }
 });
 
+// ─── UPDATE SERVICE REQUEST STATUS (Granular) ─────────────────────────────────
+router.put('/:id/status', authMiddleware, async (req, res) => {
+    try {
+        if (req.user.role !== 'mechanic') {
+            return res.status(403).json({ message: 'Unauthorized' });
+        }
+
+        const mechanic = await require('../models/Mechanic').findOne({ userId: req.user.id });
+        if (!mechanic) {
+            return res.status(403).json({ message: 'Unauthorized' });
+        }
+
+        const request = await ServiceRequest.findById(req.params.id);
+        if (!request) return res.status(404).json({ message: 'Request not found' });
+
+        if (request.mechanicId.toString() !== mechanic._id.toString()) {
+            return res.status(403).json({ message: 'Not assigned to this request' });
+        }
+
+        const { status } = req.body;
+        const validStatuses = ['Accepted', 'OnTheWay', 'Arrived', 'InProgress', 'Completed'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({ message: 'Invalid status' });
+        }
+
+        request.status = status;
+        if (status === 'Completed') {
+            request.completedAt = Date.now();
+        }
+        
+        const updatedRequest = await request.save();
+
+        const io = getIO();
+        if (io) {
+            if (status === 'Completed') io.emit('serviceCompleted', req.params.id);
+            io.emit('requestStatusUpdate', { requestId: req.params.id, status });
+        }
+
+        res.status(200).json(updatedRequest);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ─── COMPLETE A SERVICE REQUEST ───────────────────────────────────────────────
 router.put('/:id/complete', authMiddleware, async (req, res) => {
     try {
+        if (req.user.role !== 'mechanic') {
+            return res.status(403).json({ message: 'Unauthorized. Only mechanics can complete requests.' });
+        }
+
         const mechanic = await require('../models/Mechanic').findOne({ userId: req.user.id });
         if (!mechanic) {
             return res.status(403).json({ message: 'Unauthorized. Only mechanics can complete requests.' });
@@ -161,7 +244,7 @@ router.put('/:id/complete', authMiddleware, async (req, res) => {
         request.completedAt = Date.now();
         const updatedRequest = await request.save();
 
-        const { io } = require('../index');
+        const io = getIO();
         if (io) {
             io.emit('serviceCompleted', req.params.id);
             io.emit('requestStatusUpdate', { requestId: req.params.id, status: 'Completed' });
@@ -184,7 +267,6 @@ router.put('/:id/payment', authMiddleware, async (req, res) => {
         const request = await ServiceRequest.findById(req.params.id);
         if (!request) return res.status(404).json({ message: 'Request not found' });
 
-        // Only the user who made the request or the assigned mechanic can update payment
         const mechanic = await require('../models/Mechanic').findOne({ userId: req.user.id });
         const isOwner = request.userId.toString() === req.user.id;
         const isAssignedMechanic = mechanic && request.mechanicId && request.mechanicId.toString() === mechanic._id.toString();
@@ -198,6 +280,62 @@ router.put('/:id/payment', authMiddleware, async (req, res) => {
         const updated = await request.save();
 
         res.status(200).json(updated);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
+// ─── SUBMIT A REVIEW ──────────────────────────────────────────────────────────
+router.post('/:id/review', authMiddleware, async (req, res) => {
+    try {
+        const { rating, feedback } = req.body;
+
+        if (!rating || rating < 1 || rating > 5) {
+            return res.status(400).json({ message: 'Rating must be between 1 and 5' });
+        }
+
+        const request = await ServiceRequest.findById(req.params.id);
+        if (!request) return res.status(404).json({ message: 'Request not found' });
+
+        // Only the user who made the request can review
+        if (request.userId.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'Not authorized to review this request' });
+        }
+
+        if (request.status !== 'Completed') {
+            return res.status(400).json({ message: 'You can only review completed services' });
+        }
+
+        if (request.review && request.review.rating) {
+            return res.status(400).json({ message: 'You have already reviewed this service' });
+        }
+
+        request.review = {
+            rating: Number(rating),
+            feedback: feedback?.trim() || '',
+            createdAt: new Date()
+        };
+
+        const updated = await request.save();
+
+        // --- UPDATE MECHANIC RATING ---
+        if (request.mechanicId) {
+            const Mechanic = require('../models/Mechanic');
+            const completedRequests = await ServiceRequest.find({ 
+                mechanicId: request.mechanicId,
+                'review.rating': { $exists: true }
+            });
+            
+            if (completedRequests.length > 0) {
+                const totalRating = completedRequests.reduce((sum, r) => sum + r.review.rating, 0);
+                const avgRating = totalRating / completedRequests.length;
+                await Mechanic.findByIdAndUpdate(request.mechanicId, { rating: avgRating });
+            }
+        }
+        // ------------------------------
+
+        res.status(200).json({ message: 'Review submitted successfully', review: updated.review });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

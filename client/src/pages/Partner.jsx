@@ -6,6 +6,8 @@ import toast from 'react-hot-toast';
 import MapPicker from '../components/MapPicker';
 import './Form.css';
 
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const Partner = () => {
     const { user, token } = useAuth();
     const navigate = useNavigate();
@@ -13,6 +15,7 @@ const Partner = () => {
     const [formData, setFormData] = useState({
         shopName: '',
         specialization: 'Car',
+        experience: '',
         locationText: '',
         coordinates: null
     });
@@ -31,7 +34,7 @@ const Partner = () => {
     const checkStatus = async () => {
         try {
             const userId = user._id || user.id;
-            const response = await fetch(`http://localhost:5000/api/mechanics/status/${userId}`);
+            const response = await fetch(`${API}/api/mechanics/status/${userId}`);
             if (response.ok) {
                 const data = await response.json();
                 setMechanicStatus(data);
@@ -58,7 +61,7 @@ const Partner = () => {
 
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:5000/api/mechanics/register', {
+            const response = await fetch(`${API}/api/mechanics/register`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -123,7 +126,7 @@ const Partner = () => {
                     <h1>Application <span>{mechanicStatus.isVerified ? 'Approved ✓' : 'Pending Review'}</span></h1>
                     <p style={{ fontSize: '1rem', color: '#9d8d7a', margin: '1rem 0 2rem', lineHeight: 1.7 }}>
                         {mechanicStatus.isVerified
-                            ? 'Congratulations! Your partner account is verified. You can now accept service requests from the mechanic dashboard.'
+                            ? 'Congratulations! Your partner account is verified.'
                             : 'Your application is under review by our admin team. This usually takes 24–48 hours.'}
                     </p>
 
@@ -148,16 +151,58 @@ const Partner = () => {
                         </div>
                     </div>
 
-                    <button className="btn-submit" onClick={() => navigate('/')}>Back to Home</button>
-                    {!mechanicStatus.isVerified && (
-                        <p style={{ marginTop: '1.5rem', fontSize: '0.85rem', color: '#7a6a5a' }}>
-                            Need help? Contact <strong>support@carassist.com</strong>
-                        </p>
+                    {mechanicStatus.isVerified ? (
+                        <div>
+                            {/* Approved: prompt re-login to get updated JWT with mechanic role */}
+                            {user?.role !== 'mechanic' ? (
+                                <div style={{
+                                    background: 'rgba(16,185,129,0.08)',
+                                    border: '1px solid rgba(16,185,129,0.3)',
+                                    borderRadius: '12px',
+                                    padding: '1rem 1.25rem',
+                                    marginBottom: '1.5rem',
+                                    textAlign: 'left'
+                                }}>
+                                    <p style={{ color: '#10b981', fontWeight: 700, margin: '0 0 6px', fontSize: '0.95rem' }}>
+                                        🔄 One more step required
+                                    </p>
+                                    <p style={{ color: '#9d8d7a', margin: 0, fontSize: '0.88rem', lineHeight: 1.6 }}>
+                                        Your account has been approved! Please <strong>log out and log back in</strong> to activate your mechanic dashboard access.
+                                    </p>
+                                </div>
+                            ) : null}
+                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                {user?.role !== 'mechanic' ? (
+                                    <button
+                                        className="btn-submit"
+                                        onClick={() => { navigate('/login'); }}
+                                        style={{ background: '#10b981' }}
+                                    >
+                                        Log Out & Sign In Again
+                                    </button>
+                                ) : (
+                                    <button className="btn-submit" onClick={() => navigate('/mechanic-dashboard')}>
+                                        Go to Mechanic Dashboard →
+                                    </button>
+                                )}
+                                <button className="btn-submit" onClick={() => navigate('/')} style={{ background: 'transparent', border: '1px solid rgba(214,181,136,0.4)' }}>
+                                    Back to Home
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div>
+                            <button className="btn-submit" onClick={() => navigate('/')}>Back to Home</button>
+                            <p style={{ marginTop: '1.5rem', fontSize: '0.85rem', color: '#7a6a5a' }}>
+                                Need help? Contact <strong>support@carassist.com</strong>
+                            </p>
+                        </div>
                     )}
                 </div>
             </div>
         );
     }
+
 
     // 4. Application form
     return (
@@ -186,6 +231,18 @@ const Partner = () => {
                             <option value="Bike">Bike</option>
                             <option value="Both">Both (Car &amp; Bike)</option>
                         </select>
+                    </div>
+                    <div className="form-group">
+                        <label>Years of Experience</label>
+                        <input
+                            type="number"
+                            name="experience"
+                            min="0"
+                            placeholder="e.g., 5"
+                            value={formData.experience}
+                            onChange={handleChange}
+                            required
+                        />
                     </div>
                     <div className="form-group" style={{ marginBottom: '20px' }}>
                         <label>Location (City / Area)</label>

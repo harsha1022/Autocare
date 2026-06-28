@@ -25,7 +25,7 @@ router.post('/register', validate(userRegistrationSchema), async (req, res) => {
         const savedUser = await user.save();
 
         const payload = { id: savedUser._id, role: savedUser.role };
-        const token = jwt.sign(payload, process.env.JWT_SECRET || 'fallback_secret', { expiresIn: '1d' });
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
         res.status(201).json({
             token,
@@ -51,7 +51,7 @@ router.post('/login', validate(userLoginSchema), async (req, res) => {
         }
 
         const payload = { id: user._id, role: user.role };
-        const token = jwt.sign(payload, process.env.JWT_SECRET || 'fallback_secret', { expiresIn: '1d' });
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
         res.status(200).json({
             message: 'Login successful',

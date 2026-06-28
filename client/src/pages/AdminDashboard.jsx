@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 import {
     Users, Wrench, Calendar, CheckCircle, AlertCircle, Trash2,
     RefreshCcw, LayoutDashboard, LogOut, Shield, Search,
@@ -12,7 +13,7 @@ import {
 } from 'recharts';
 import './AdminDashboard.css';
 
-const API = 'http://localhost:5000';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const COLORS = ['#D6B588', '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 const AdminDashboard = () => {
@@ -59,25 +60,57 @@ const AdminDashboard = () => {
     };
 
     const handleApprove = async (id) => {
-        await fetch(`${API}/api/admin/mechanics/${id}/approve`, { method: 'PUT', headers });
+        try {
+            const res = await fetch(`${API}/api/admin/mechanics/${id}/approve`, { method: 'PUT', headers });
+            const data = await res.json();
+            if (res.ok) {
+                toast.success('Partner approved! They must log out and log back in to access the mechanic dashboard.');
+            } else {
+                toast.error(data.message || 'Failed to approve partner');
+            }
+        } catch { toast.error('Server error during approval'); }
         fetchData();
     };
 
     const handleReject = async (id) => {
         if (!window.confirm('Reject this partner application?')) return;
-        await fetch(`${API}/api/admin/mechanics/${id}/reject`, { method: 'PUT', headers });
+        try {
+            const res = await fetch(`${API}/api/admin/mechanics/${id}/reject`, { method: 'PUT', headers });
+            const data = await res.json();
+            if (res.ok) {
+                toast('Application rejected.', { icon: '❌' });
+            } else {
+                toast.error(data.message || 'Failed to reject application');
+            }
+        } catch { toast.error('Server error during rejection'); }
         fetchData();
     };
 
     const handleDeleteUser = async (id) => {
-        if (!window.confirm('Delete this user?')) return;
-        await fetch(`${API}/api/admin/users/${id}`, { method: 'DELETE', headers });
+        if (!window.confirm('Delete this user? This action cannot be undone.')) return;
+        try {
+            const res = await fetch(`${API}/api/admin/users/${id}`, { method: 'DELETE', headers });
+            if (res.ok) {
+                toast.success('User deleted successfully');
+            } else {
+                const data = await res.json();
+                toast.error(data.message || 'Failed to delete user');
+            }
+        } catch { toast.error('Server error during deletion'); }
         fetchData();
     };
 
     const handleDeleteMechanic = async (id) => {
-        if (!window.confirm('Delete this mechanic profile?')) return;
-        await fetch(`${API}/api/admin/mechanics/${id}`, { method: 'DELETE', headers });
+        if (!window.confirm('Delete this mechanic profile? This action cannot be undone.')) return;
+        try {
+            const res = await fetch(`${API}/api/admin/mechanics/${id}`, { method: 'DELETE', headers });
+            if (res.ok) {
+                toast.success('Mechanic profile deleted');
+            } else {
+                const data = await res.json();
+                toast.error(data.message || 'Failed to delete mechanic');
+            }
+        } catch { toast.error('Server error during deletion'); }
         fetchData();
     };
 

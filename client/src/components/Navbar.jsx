@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import './Navbar.css';
 
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const Navbar = () => {
     const { user, token, logout } = useAuth();
     const navigate = useNavigate();
@@ -13,7 +15,7 @@ const Navbar = () => {
     useEffect(() => {
         if (!user || user.role !== 'user' || !token) { setActiveCount(0); return; }
         const uid = user._id || user.id;
-        fetch(`http://localhost:5000/api/services/user/${uid}`, {
+        fetch(`${API}/api/services/user/${uid}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         })
             .then(r => r.ok ? r.json() : [])

@@ -5,6 +5,8 @@ import toast from 'react-hot-toast';
 import MapPicker from '../components/MapPicker';
 import './Form.css';
 
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const Booking = () => {
     const location = useLocation();
     const navigate = useNavigate();
@@ -39,10 +41,20 @@ const Booking = () => {
             return;
         }
 
+        if (!formData.serviceType.trim()) {
+            toast.error('Please enter the type of service needed');
+            return;
+        }
+
+        if (!formData.locationText) {
+            toast.error('Please select your location on the map');
+            return;
+        }
+
         setIsLoading(true);
 
         try {
-            const response = await fetch('http://localhost:5000/api/services/request', {
+            const response = await fetch(`${API}/api/services/request`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -55,7 +67,9 @@ const Booking = () => {
                     location: {
                         address: formData.locationText,
                         type: 'Point',
-                        coordinates: formData.coordinates ? [formData.coordinates.lng, formData.coordinates.lat] : [0, 0]
+                        coordinates: formData.coordinates
+                            ? [formData.coordinates.lng, formData.coordinates.lat]
+                            : [0, 0]
                     }
                 })
             });
@@ -65,7 +79,7 @@ const Booking = () => {
             if (response.ok) {
                 toast.success('Booking request sent! A mechanic will be assigned shortly.');
                 setFormData({ vehicleType: 'Car', serviceType: '', locationText: '', coordinates: null, description: '' });
-                navigate('/user-dashboard'); // Navigate directly to new dashboard to track
+                navigate('/'); // Navigate to user dashboard (Home IS the dashboard)
             } else {
                 toast.error(data.message || data.error || 'Failed to submit booking');
             }
@@ -98,21 +112,23 @@ const Booking = () => {
                             type="text"
                             placeholder="e.g., Battery Jump-start, Tyre Puncture"
                             required
+                            value={formData.serviceType}
                             onChange={(e) => setFormData({ ...formData, serviceType: e.target.value })}
                         />
                     </div>
                     <div className="form-group" style={{ marginBottom: '20px' }}>
                         <label>Location / Landmark</label>
-                        <MapPicker 
-                            onLocationSelect={(coords, addr) => 
+                        <MapPicker
+                            onLocationSelect={(coords, addr) =>
                                 setFormData({ ...formData, coordinates: coords, locationText: addr })
-                            } 
+                            }
                         />
                     </div>
                     <div className="form-group">
                         <label>Description (Optional)</label>
                         <textarea
                             placeholder="Tell us more about the issue..."
+                            value={formData.description}
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                         ></textarea>
                     </div>

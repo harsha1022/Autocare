@@ -1,25 +1,25 @@
 :root {
-  /* Earthy Colors Palette */
-  --primary: #D6B588;       /* Warm Beige */
-  --primary-light: #e5cdab; /* Lighter Warm Beige */
-  --secondary: #705E46;     /* Medium Brown */
-  --secondary-light: #8f7959;/* Light Medium Brown */
-  --accent: #C6C0B9;        /* Light Greige */
-  --accent-light: #ebe8e4;
+  /* Dark Theme Palette */
+  --primary: #FF8C00;       /* Orange */
+  --primary-light: #FF9F33; /* Lighter Orange */
+  --secondary: #FF3B30;     /* Red */
+  --secondary-light: #ff6058;/* Light Red */
+  --accent: #FF8C00;        /* Orange Accent */
+  --accent-light: #FF9F33;
 
-  --bg-deep: #2e1b00;       /* Super Dark Brown (Surface) */
-  --bg-dark: #422701;       /* Dark Brown (Base Bg) */
-  --surface: #705E46;       /* Medium Brown Surface */
-  --surface-light: #D6B588;
+  --bg-deep: #0D0D0D;       /* Super Dark Black (Surface) */
+  --bg-dark: #111111;       /* Dark Black (Base Bg) */
+  --surface: #1A1A1A;       /* Dark Gray Cards */
+  --surface-light: #2A2A2A; /* Lighter Gray */
 
   --text-main: #ffffff;
-  --text-muted: #C6C0B9;    /* Light Greige */
+  --text-muted: #cccccc;    /* Light Gray */
 
-  --success: #6CA672;       /* Muted Green matching earthy vibe */
-  --danger: #A65243;        /* Muted Red */
-  --warning: #D6B588;       /* Warm Beige replacing bright yellow */
+  --success: #6CA672;       /* Success Green */
+  --danger: #FF3B30;        /* Danger Red */
+  --warning: #FF8C00;       /* Warning Orange */
 
-  --glass-bg: rgba(45, 52, 54, 0.4);
+  --glass-bg: rgba(26, 26, 26, 0.4);
   --glass-border: rgba(255, 255, 255, 0.1);
   --glass-blur: blur(12px);
 
