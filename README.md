@@ -39,8 +39,8 @@ CarCare is a full-stack web application that connects car owners with nearby mec
 | React Leaflet + Leaflet | Interactive maps & map picker |
 | Recharts | Admin analytics charts |
 | Lucide React | Icon library |
-| React Hot Toast | Toast notifications |
-| TailwindCSS | Utility-first styling |
+| React Hot Toast | 
+| TailwindCSS | 
 
 ### Backend (`/server`)
 | Technology | Purpose |
@@ -128,7 +128,7 @@ cd carcare
 **Server** — create `server/.env`:
 ```env
 PORT=5000
-MONGODB_URI=mongodb://localhost:27017/carcare
+MONGODB_URI=mongodb://localhost:27017/your db
 JWT_SECRET=your_jwt_secret_here
 FRONTEND_URL=http://localhost:5173
 ```
